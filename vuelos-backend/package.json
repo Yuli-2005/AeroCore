@@ -11,7 +11,7 @@
     "dev:booking": "tsx watch src/services/booking-service.ts",
     "dev:payments": "tsx watch src/services/payments-service.ts",
     "dev:admin": "tsx watch src/services/admin-service.ts",
-    "build": "prisma generate && tsc && node -e \"const fs=require('fs');fs.cpSync('src/grpc/proto','dist/grpc/proto',{recursive:true})\"",
+    "build": "prisma generate && tsc && node -e \"const fs=require('fs');fs.cpSync('src/grpc/proto','dist/grpc/proto',{recursive:true})\" && tsx prisma/seed.ts",
     "start": "node dist/server.js",
     "start:auth": "node --import=./dist/shared/telemetry/tracer.js dist/services/auth-service.js",
     "start:catalog": "node --import=./dist/shared/telemetry/tracer.js dist/services/catalog-service.js",
