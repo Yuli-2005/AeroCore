@@ -1,14 +1,12 @@
 services:
-  # ─────────────────────────────────────────
   # BACKEND — Node.js API
-  # ─────────────────────────────────────────
   - type: web
     name: aerocore-api
     runtime: node
     region: oregon
     plan: free
     rootDir: vuelos-backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -16,9 +14,9 @@ services:
       - key: PORT
         value: 3000
       - key: DATABASE_URL
-        sync: false          # ⬅ Poner manualmente en Render Dashboard
+        sync: false
       - key: JWT_SECRET
-        sync: false          # ⬅ Poner manualmente en Render Dashboard
+        sync: false
       - key: JWT_ISSUER
         value: aerocore-api
       - key: JWT_AUDIENCE
@@ -26,22 +24,17 @@ services:
       - key: JWT_EXPIRES_IN
         value: 2h
       - key: FRONTEND_URL
-        fromService:
-          name: aerocore-frontend
-          type: web
-          property: host
+        value: https://aerocore-frontend.onrender.com   # Pon la URL real después de desplegar
 
-  # ─────────────────────────────────────────
   # FRONTEND — Vue / Vite Static Site
-  # ─────────────────────────────────────────
-  - type: web
+  - type: static
     name: aerocore-frontend
-    env: static
-    region: oregon
-    plan: free
-    rootDir: front-vue/front-vue
+    rootDir: front-vue          # Ajusta según tu estructura real
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    publishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://aerocore-api.onrender.com/api/v1/yulieht-galarza   # Se inyecta en el build
     routes:
       - type: rewrite
         source: /*
