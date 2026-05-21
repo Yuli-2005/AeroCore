@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../stores/auth';
 import router from '../router';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://integracion-sistemas2026.onrender.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
