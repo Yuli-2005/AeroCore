@@ -33,11 +33,12 @@ services:
         value: https://aerocore-frontend.onrender.com
 
   # FRONTEND — Vue / Vite Static Site
-  - type: static
+  - type: web
     name: aerocore-frontend
+    runtime: static
     rootDir: front-vue/front-vue
     buildCommand: npm install && npm run build
-    publishPath: dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         value: https://aerocore-api.onrender.com/api/v1/yulieth-galarza
