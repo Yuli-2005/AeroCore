@@ -51,15 +51,19 @@ async function main() {
   });
 
   // 3. USUARIOS (Normalizados)
-  const adminPassword = await bcrypt.hash('JcT11.06ec', 10);
+  const adminPassword = await bcrypt.hash('Yuli@2005', 10);
   await prisma.user.upsert({
-    where: { email: 'admin@vuelosapp.com' },
-    update: {},
-    create: {
-      email: 'admin@vuelosapp.com',
+    where: { email: 'yvgalarza@vuelosapp.com' },
+    update: {
       passwordHash: adminPassword,
-      firstName: 'Admin',
-      firstLastName: 'Sistema',
+      firstName: 'Yulieth',
+      firstLastName: 'Galarza',
+    },
+    create: {
+      email: 'yvgalarza@vuelosapp.com',
+      passwordHash: adminPassword,
+      firstName: 'Yulieth',
+      firstLastName: 'Galarza',
       mainAddress: 'Av. Amazonas N-100',
       cityId: quito.id,
       role: UserRole.ADMIN,
