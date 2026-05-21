@@ -1,0 +1,48 @@
+services:
+  # ─────────────────────────────────────────
+  # BACKEND — Node.js API
+  # ─────────────────────────────────────────
+  - type: web
+    name: aerocore-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: vuelos-backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false          # ⬅ Poner manualmente en Render Dashboard
+      - key: JWT_SECRET
+        sync: false          # ⬅ Poner manualmente en Render Dashboard
+      - key: JWT_ISSUER
+        value: aerocore-api
+      - key: JWT_AUDIENCE
+        value: aerocore-client
+      - key: JWT_EXPIRES_IN
+        value: 2h
+      - key: FRONTEND_URL
+        fromService:
+          name: aerocore-frontend
+          type: web
+          property: host
+
+  # ─────────────────────────────────────────
+  # FRONTEND — Vue / Vite Static Site
+  # ─────────────────────────────────────────
+  - type: web
+    name: aerocore-frontend
+    env: static
+    region: oregon
+    plan: free
+    rootDir: front-vue/front-vue
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
