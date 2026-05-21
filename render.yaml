@@ -41,7 +41,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://aerocore-api.onrender.com/api/v1/yulieth-galarza
+        value: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
     routes:
       - type: rewrite
         source: /*
