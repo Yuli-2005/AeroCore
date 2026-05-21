@@ -30,7 +30,7 @@ services:
       - key: JWT_EXPIRES_IN
         value: 2h
       - key: FRONTEND_URL
-        value: https://aerocore-frontend.onrender.com
+        value: https://aerocore-frontend-issd.onrender.com
 
   # FRONTEND — Vue / Vite Static Site
   - type: web

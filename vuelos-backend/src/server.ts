@@ -114,6 +114,7 @@ const allowedOrigins = [
   'http://localhost:4200',
   'https://integracion-sistemas2026.onrender.com',
   'https://mango-meadow-0d3fdd810.7.azurestaticapps.net',
+  'https://aerocore-frontend-issd.onrender.com',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
