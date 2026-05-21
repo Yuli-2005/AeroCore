@@ -1,0 +1,325 @@
+openapi: 3.0.3
+info:
+  title: Payments API - Pagos y facturación - Yulieth Galarza
+  description: |
+    API REST para el módulo de pagos y facturación.
+    Desarrollado por Yulieth Galarza para la plataforma Booking académica.
+
+    **Versionamiento**: todas las rutas usan el prefijo `/api/v1/yulieth-galarza/`.
+
+    **API Pública**: NO requiere autenticación.
+  version: 1.0.0
+  contact:
+    name: Yulieth Galarza - Módulo Payments
+
+servers:
+  - url: https://ms-payments.onrender.com/api/v1/yulieth-galarza
+    description: Producción
+  - url: http://localhost:3003/api/v1/yulieth-galarza
+    description: Desarrollo local
+
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        reservationId: { type: string }
+        amount: { type: number }
+        provider: { type: string }
+        transactionId: { type: string }
+        status: { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED] }
+        createdAt: { type: string, format: date-time }
+
+    BillingProfile:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        taxId: { type: string }
+        businessName: { type: string }
+        email: { type: string, nullable: true }
+        address: { type: string }
+        cityId: { type: string }
+        isDefault: { type: boolean }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string }
+        paymentId: { type: string }
+        billingProfileId: { type: string }
+        invoiceNumber: { type: string }
+        subtotal: { type: number }
+        taxAmount: { type: number }
+        total: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    InvoiceItem:
+      type: object
+      properties:
+        id: { type: string }
+        invoiceId: { type: string }
+        description: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: number }
+        totalPrice: { type: number }
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+paths:
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Registrar un pago
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservationId, amount, provider, transactionId]
+              properties:
+                reservationId: { type: string }
+                amount: { type: number }
+                provider: { type: string }
+                transactionId: { type: string }
+                status: { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED], default: COMPLETED }
+      responses:
+        '201':
+          description: Pago registrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Payment' }
+    get:
+      tags: [Payments]
+      summary: Listar todos los pagos
+      responses:
+        '200':
+          description: Lista de pagos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Payment' }
+
+  /payments/by-reservation/{reservationId}:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Payments]
+      summary: Obtener pagos de una reserva
+      responses:
+        '200':
+          description: Pagos encontrados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Payment' }
+
+  /invoices:
+    get:
+      tags: [Invoices]
+      summary: Listar facturas
+      responses:
+        '200':
+          description: Lista de facturas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Invoice' }
+
+  /invoices/by-payment/{paymentId}:
+    parameters:
+      - name: paymentId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Invoices]
+      summary: Obtener factura por pago
+      responses:
+        '200':
+          description: Factura encontrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Invoice' }
+
+  /invoice-items:
+    post:
+      tags: [Invoices]
+      summary: Agregar ítem a factura
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoiceId, description, quantity, unitPrice, totalPrice]
+              properties:
+                invoiceId: { type: string }
+                description: { type: string }
+                quantity: { type: integer }
+                unitPrice: { type: number }
+                totalPrice: { type: number }
+      responses:
+        '201':
+          description: Ítem creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/InvoiceItem' }
+
+  /invoice-items/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Invoices]
+      summary: Actualizar ítem de factura
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description: { type: string }
+                quantity: { type: integer }
+                unitPrice: { type: number }
+                totalPrice: { type: number }
+      responses:
+        '200':
+          description: Ítem actualizado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/InvoiceItem' }
+    delete:
+      tags: [Invoices]
+      summary: Eliminar ítem de factura
+      responses:
+        '200':
+          description: Ítem eliminado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /billing-profiles:
+    get:
+      tags: [Billing]
+      summary: Listar perfiles de facturación
+      responses:
+        '200':
+          description: Lista de perfiles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/BillingProfile' }
+    post:
+      tags: [Billing]
+      summary: Crear perfil de facturación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, taxId, businessName, address, cityId]
+              properties:
+                userId: { type: string }
+                taxId: { type: string }
+                businessName: { type: string }
+                email: { type: string }
+                address: { type: string }
+                cityId: { type: string }
+                isDefault: { type: boolean }
+      responses:
+        '201':
+          description: Perfil creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BillingProfile' }
+
+tags:
+  - name: Payments
+  - name: Invoices
+  - name: Billing

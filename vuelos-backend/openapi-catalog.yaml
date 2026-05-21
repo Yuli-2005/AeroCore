@@ -1,0 +1,695 @@
+openapi: 3.0.3
+info:
+  title: Catalog API - Vuelos - Yulieth Galarza
+  description: |
+    API REST para el módulo de catálogo de vuelos (infraestructura aérea).
+    Desarrollado por Yulieth Galarza para la plataforma Booking académica.
+
+    **Versionamiento**: todas las rutas usan el prefijo `/api/v1/yulieth-galarza/`.
+
+    **API Pública**: NO requiere autenticación.
+  version: 1.0.0
+  contact:
+    name: Yulieth Galarza - Módulo Vuelos
+
+servers:
+  - url: https://ms-catalog.onrender.com/api/v1/yulieth-galarza
+    description: Producción (Render)
+  - url: http://localhost:3000/api/v1/yulieth-galarza
+    description: Desarrollo local
+
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+    # Entidades de geografía
+    Country:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        isoCode: { type: string }
+        phoneCode: { type: string, nullable: true }
+        currencyCode: { type: string, nullable: true }
+    City:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        iataCode: { type: string, nullable: true }
+        country: { $ref: '#/components/schemas/Country' }
+    Airport:
+      type: object
+      properties:
+        id: { type: string }
+        iataCode: { type: string }
+        name: { type: string }
+        timezone: { type: string }
+        city: { $ref: '#/components/schemas/City' }
+    Airline:
+      type: object
+      properties:
+        id: { type: string }
+        iataCode: { type: string }
+        name: { type: string }
+        logoUrl: { type: string, nullable: true }
+        country: { $ref: '#/components/schemas/Country' }
+    Aircraft:
+      type: object
+      properties:
+        id: { type: string }
+        modelName: { type: string }
+        registration: { type: string }
+        hasWifi: { type: boolean }
+        hasUsb: { type: boolean }
+        airline: { $ref: '#/components/schemas/Airline' }
+
+    # Vuelos
+    Segment:
+      type: object
+      properties:
+        id: { type: string }
+        segmentNumber: { type: string }
+        flightId: { type: string, nullable: true }
+        originAirport: { $ref: '#/components/schemas/Airport' }
+        destinationAirport: { $ref: '#/components/schemas/Airport' }
+        departureDateTime: { type: string, format: date-time }
+        arrivalDateTime: { type: string, format: date-time }
+        airline: { $ref: '#/components/schemas/Airline' }
+        aircraft: { $ref: '#/components/schemas/Aircraft', nullable: true }
+        estimatedDuration: { type: integer }
+    FlightClass:
+      type: object
+      properties:
+        id: { type: string }
+        flightId: { type: string }
+        cabinClass: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+        availableSeats: { type: integer }
+        basePrice: { type: number, format: decimal }
+    Flight:
+      type: object
+      properties:
+        id: { type: string }
+        originAirportIata: { type: string }
+        destinationAirportIata: { type: string }
+        departureDate: { type: string, format: date }
+        status: { type: string, enum: [SCHEDULED, DELAYED, CANCELLED, COMPLETED] }
+        segments: { type: array, items: { $ref: '#/components/schemas/Segment' } }
+        flightClasses: { type: array, items: { $ref: '#/components/schemas/FlightClass' } }
+        airline: { $ref: '#/components/schemas/Airline', nullable: true }
+        flightNumber: { type: string, nullable: true }
+        departureDateTime: { type: string, format: date-time, nullable: true }
+        arrivalDateTime: { type: string, format: date-time, nullable: true }
+        duration: { type: integer, nullable: true }
+        stops: { type: integer, nullable: true }
+        lowestPrice: { type: number, nullable: true }
+
+    # Servicios adicionales
+    ServiceCatalog:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        code: { type: string }
+        category: { type: string }
+        description: { type: string, nullable: true }
+    AirlineServiceConfig:
+      type: object
+      properties:
+        id: { type: string }
+        service: { $ref: '#/components/schemas/ServiceCatalog' }
+        airline: { $ref: '#/components/schemas/Airline' }
+        price: { type: number }
+        currency: { type: string }
+        originAirportId: { type: string, nullable: true }
+        destAirportId: { type: string, nullable: true }
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+paths:
+  # ==================== VUELOS ====================
+  /flights/search:
+    get:
+      tags: [Flights]
+      summary: Buscar vuelos disponibles
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema: { type: string, example: UIO }
+        - name: destination
+          in: query
+          required: true
+          schema: { type: string, example: GYE }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: passengers
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: class
+          in: query
+          schema: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+      responses:
+        '200':
+          description: Vuelos disponibles
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Flight' }
+
+  /flights:
+    get:
+      tags: [Flights]
+      summary: Listar todos los vuelos
+      responses:
+        '200':
+          description: Lista de vuelos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Flight' }
+    post:
+      tags: [Flights]
+      summary: Crear vuelo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [originAirportIata, destinationAirportIata, departureDate]
+              properties:
+                originAirportIata: { type: string, minLength: 3, maxLength: 3 }
+                destinationAirportIata: { type: string, minLength: 3, maxLength: 3 }
+                departureDate: { type: string, format: date }
+                status: { type: string, enum: [SCHEDULED, DELAYED, CANCELLED, COMPLETED] }
+                segments:
+                  type: array
+                  items:
+                    type: object
+                    required: [segmentNumber, originAirportId, destinationAirportId, departureDateTime, arrivalDateTime, airlineId, estimatedDuration]
+                    properties:
+                      segmentNumber: { type: string }
+                      originAirportId: { type: string }
+                      destinationAirportId: { type: string }
+                      departureDateTime: { type: string, format: date-time }
+                      arrivalDateTime: { type: string, format: date-time }
+                      airlineId: { type: string }
+                      aircraftId: { type: string }
+                      estimatedDuration: { type: integer }
+                flightClasses:
+                  type: array
+                  items:
+                    type: object
+                    required: [cabinClass, availableSeats, basePrice]
+                    properties:
+                      cabinClass: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+                      availableSeats: { type: integer }
+                      basePrice: { type: number }
+      responses:
+        '201':
+          description: Vuelo creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Flight' }
+
+  /flights/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Flights]
+      summary: Detalle de vuelo
+      responses:
+        '200':
+          description: Vuelo encontrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Flight' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Flights]
+      summary: Actualizar vuelo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                originAirportIata: { type: string }
+                destinationAirportIata: { type: string }
+                departureDate: { type: string, format: date }
+                status: { type: string, enum: [SCHEDULED, DELAYED, CANCELLED, COMPLETED] }
+      responses:
+        '200':
+          description: Vuelo actualizado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Flight' }
+    delete:
+      tags: [Flights]
+      summary: Eliminar vuelo
+      responses:
+        '200':
+          description: Vuelo eliminado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  # ==================== CLASES DE VUELO ====================
+  /flight-classes:
+    get:
+      tags: [FlightClasses]
+      summary: Listar clases de vuelo
+      responses:
+        '200':
+          description: Lista de clases
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/FlightClass' }
+    post:
+      tags: [FlightClasses]
+      summary: Crear clase de vuelo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flightId, cabinClass, availableSeats, basePrice]
+              properties:
+                flightId: { type: string }
+                cabinClass: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+                availableSeats: { type: integer }
+                basePrice: { type: number }
+      responses:
+        '201':
+          description: Clase creada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/FlightClass' }
+
+  /flight-classes/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [FlightClasses]
+      summary: Detalle de clase
+      responses:
+        '200':
+          description: Clase encontrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/FlightClass' }
+    patch:
+      tags: [FlightClasses]
+      summary: Actualizar clase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cabinClass: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+                availableSeats: { type: integer }
+                basePrice: { type: number }
+      responses:
+        '200':
+          description: Clase actualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/FlightClass' }
+
+  # ==================== ADMIN - PAÍSES, CIUDADES, AEROPUERTOS, ETC ====================
+  /admin/countries:
+    get:
+      tags: [Admin]
+      summary: Listar países
+      responses:
+        '200':
+          description: Lista de países
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    post:
+      tags: [Admin]
+      summary: Crear país
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, isoCode]
+              properties:
+                name: { type: string }
+                isoCode: { type: string }
+                phoneCode: { type: string }
+                currencyCode: { type: string }
+      responses:
+        '201':
+          description: País creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/cities:
+    get:
+      tags: [Admin]
+      summary: Listar ciudades
+      responses:
+        '200':
+          description: Lista de ciudades
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    post:
+      tags: [Admin]
+      summary: Crear ciudad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, countryId]
+              properties:
+                name: { type: string }
+                countryId: { type: string }
+                iataCode: { type: string }
+      responses:
+        '201':
+          description: Ciudad creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/airports:
+    get:
+      tags: [Admin]
+      summary: Listar aeropuertos
+      responses:
+        '200':
+          description: Lista de aeropuertos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    post:
+      tags: [Admin]
+      summary: Crear aeropuerto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iataCode, name, cityId, timezone]
+              properties:
+                iataCode: { type: string }
+                name: { type: string }
+                cityId: { type: string }
+                timezone: { type: string }
+      responses:
+        '201':
+          description: Aeropuerto creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/airlines:
+    get:
+      tags: [Admin]
+      summary: Listar aerolíneas
+      responses:
+        '200':
+          description: Lista de aerolíneas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    post:
+      tags: [Admin]
+      summary: Crear aerolínea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iataCode, name, countryId]
+              properties:
+                iataCode: { type: string }
+                name: { type: string }
+                countryId: { type: string }
+                logoUrl: { type: string }
+      responses:
+        '201':
+          description: Aerolínea creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/aircraft:
+    get:
+      tags: [Admin]
+      summary: Listar aeronaves
+      responses:
+        '200':
+          description: Lista de aeronaves
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    post:
+      tags: [Admin]
+      summary: Crear aeronave
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [airlineId, modelName, registration]
+              properties:
+                airlineId: { type: string }
+                modelName: { type: string }
+                registration: { type: string }
+                hasWifi: { type: boolean }
+                hasUsb: { type: boolean }
+      responses:
+        '201':
+          description: Aeronave creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/segments:
+    get:
+      tags: [Admin]
+      summary: Listar segmentos
+      responses:
+        '200':
+          description: Lista de segmentos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Segment' }
+    post:
+      tags: [Admin]
+      summary: Crear segmento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [segmentNumber, originAirportId, destinationAirportId, departureDateTime, arrivalDateTime, airlineId, estimatedDuration]
+              properties:
+                segmentNumber: { type: string }
+                flightId: { type: string, nullable: true }
+                originAirportId: { type: string }
+                destinationAirportId: { type: string }
+                departureDateTime: { type: string, format: date-time }
+                arrivalDateTime: { type: string, format: date-time }
+                airlineId: { type: string }
+                aircraftId: { type: string, nullable: true }
+                estimatedDuration: { type: integer }
+      responses:
+        '201':
+          description: Segmento creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  /admin/segments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Admin]
+      summary: Actualizar segmento
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                segmentNumber: { type: string }
+                originAirportId: { type: string }
+                destinationAirportId: { type: string }
+                departureDateTime: { type: string, format: date-time }
+                arrivalDateTime: { type: string, format: date-time }
+                airlineId: { type: string }
+                aircraftId: { type: string, nullable: true }
+                estimatedDuration: { type: integer }
+                flightId: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Segmento actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+    delete:
+      tags: [Admin]
+      summary: Eliminar segmento
+      responses:
+        '200':
+          description: Segmento eliminado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  # ==================== SERVICIOS ADICIONALES (catalog) ====================
+  /service-catalog:
+    get:
+      tags: [Services]
+      summary: Listar catálogo de servicios
+      responses:
+        '200':
+          description: Lista de servicios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ServiceCatalog' }
+
+  /airline-service-config:
+    get:
+      tags: [Services]
+      summary: Listar configuraciones de servicio por aerolínea
+      responses:
+        '200':
+          description: Lista de configuraciones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/AirlineServiceConfig' }
+
+tags:
+  - name: Flights
+    description: Gestión de vuelos
+  - name: FlightClasses
+    description: Clases de vuelo
+  - name: Services
+    description: Catálogo de servicios adicionales
+  - name: Admin
+    description: Administración (países, ciudades, aeropuertos, aerolíneas, aeronaves, segmentos)

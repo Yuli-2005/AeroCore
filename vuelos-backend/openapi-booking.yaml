@@ -1,0 +1,541 @@
+openapi: 3.0.3
+info:
+  title: Booking API - Reservas y Check-in - Yulieth Galarza
+  description: |
+    API REST para el módulo de reservas, check-in y promociones.
+    Desarrollado por Yulieth Galarza para la plataforma Booking académica.
+
+    **Versionamiento**: todas las rutas usan el prefijo `/api/v1/yulieth-galarza/`.
+
+    **API Pública**: NO requiere autenticación.
+  version: 1.0.0
+  contact:
+    name: Yulieth Galarza - Módulo Booking
+
+servers:
+  - url: https://ms-booking.onrender.com/api/v1/yulieth-galarza
+    description: Producción
+  - url: http://localhost:3002/api/v1/yulieth-galarza
+    description: Desarrollo local
+
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+
+    Passenger:
+      type: object
+      properties:
+        id: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        documentNumber: { type: string }
+        seatNumber: { type: string, nullable: true }
+        flightClassId: { type: string }
+
+    Promotion:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
+        discountValue: { type: number }
+        maxUsages: { type: integer, nullable: true }
+        currentUsages: { type: integer }
+        isActive: { type: boolean }
+
+    Reservation:
+      type: object
+      properties:
+        id: { type: string }
+        reservationCode: { type: string }
+        status: { type: string, enum: [PENDING, CONFIRMED, CANCELLED] }
+        totalAmount: { type: number }
+        createdAt: { type: string, format: date-time }
+        userId: { type: string }
+        flightId: { type: string }
+        promotionId: { type: string, nullable: true }
+        passengers: { type: array, items: { $ref: '#/components/schemas/Passenger' } }
+
+    BoardingPass:
+      type: object
+      properties:
+        id: { type: string }
+        passengerId: { type: string }
+        segmentId: { type: string }
+        boardingCode: { type: string }
+        gate: { type: string, nullable: true }
+        boardingGroup: { type: string, nullable: true }
+        checkInAt: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, BOARDED, NO_SHOW] }
+
+    PassengerService:
+      type: object
+      properties:
+        id: { type: string }
+        passengerId: { type: string }
+        serviceConfigId: { type: string }
+        quantity: { type: integer }
+        unitPriceAtBooking: { type: number }
+
+  responses:
+    BadRequest: { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    NotFound: { description: Recurso no encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+
+paths:
+  # ==================== RESERVAS ====================
+  /reservations:
+    post:
+      tags: [Reservations]
+      summary: Crear reserva
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flightClassId, passengers]
+              properties:
+                flightClassId: { type: string }
+                passengers:
+                  type: array
+                  items:
+                    type: object
+                    required: [firstName, lastName, documentNumber]
+                    properties:
+                      firstName: { type: string }
+                      lastName: { type: string }
+                      documentNumber: { type: string }
+                      seatNumber: { type: string, nullable: true }
+                promotionCode: { type: string }
+      responses:
+        '201':
+          description: Reserva creada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Reservation' }
+    get:
+      tags: [Reservations]
+      summary: Listar todas las reservas
+      responses:
+        '200':
+          description: Lista de reservas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Reservation' }
+
+  /reservations/my:
+    get:
+      tags: [Reservations]
+      summary: Mis reservas (por userId)
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Reservas del usuario
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Reservation' }
+
+  /reservations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Reservations]
+      summary: Detalle de reserva
+      responses:
+        '200':
+          description: Reserva encontrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Reservation' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Reservations]
+      summary: Cancelar reserva (DELETE)
+      responses:
+        '200':
+          description: Reserva cancelada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          cancelled: { type: boolean }
+                          reservationCode: { type: string }
+
+  /reservations/{id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Reservations]
+      summary: Cancelar reserva (PATCH)
+      responses:
+        '200':
+          description: Reserva cancelada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          cancelled: { type: boolean }
+                          reservationCode: { type: string }
+
+  /reservations/{id}/passengers/{passengerId}/seat:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: passengerId
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Reservations]
+      summary: Asignar asiento a pasajero
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seatNumber]
+              properties:
+                seatNumber: { type: string }
+      responses:
+        '200':
+          description: Asiento asignado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Passenger' }
+
+  # ==================== PASES DE ABORDAR ====================
+  /boarding-passes:
+    post:
+      tags: [CheckIn]
+      summary: Emitir pase de abordar (check-in)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passengerId, segmentId, boardingCode]
+              properties:
+                passengerId: { type: string }
+                segmentId: { type: string }
+                boardingCode: { type: string }
+                gate: { type: string }
+                boardingGroup: { type: string }
+                checkInAt: { type: string, format: date-time }
+                status: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, BOARDED, NO_SHOW] }
+      responses:
+        '201':
+          description: Pase creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BoardingPass' }
+
+  /boarding-passes/by-passenger/{passengerId}:
+    parameters:
+      - name: passengerId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [CheckIn]
+      summary: Pases de abordar de un pasajero
+      responses:
+        '200':
+          description: Pases encontrados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/BoardingPass' }
+
+  # ==================== SERVICIOS ADICIONALES POR PASAJERO ====================
+  /passenger-services:
+    post:
+      tags: [PassengerServices]
+      summary: Agregar servicio adicional a pasajero
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [passengerId, serviceConfigId, quantity, unitPriceAtBooking]
+              properties:
+                passengerId: { type: string }
+                serviceConfigId: { type: string }
+                quantity: { type: integer }
+                unitPriceAtBooking: { type: number }
+      responses:
+        '201':
+          description: Servicio agregado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PassengerService' }
+
+  /passenger-services/by-passenger/{passengerId}:
+    parameters:
+      - name: passengerId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [PassengerServices]
+      summary: Servicios de un pasajero
+      responses:
+        '200':
+          description: Lista de servicios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/PassengerService' }
+
+  /passenger-services/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [PassengerServices]
+      summary: Eliminar servicio adicional
+      responses:
+        '200':
+          description: Servicio eliminado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  # ==================== PROMOCIONES ====================
+  /promotions/validate:
+    post:
+      tags: [Promotions]
+      summary: Validar código de promoción
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, amount]
+              properties:
+                code: { type: string }
+                amount: { type: number }
+      responses:
+        '200':
+          description: Resultado de validación
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          valid: { type: boolean }
+                          discountAmount: { type: number }
+                          finalAmount: { type: number }
+
+  /promotions:
+    get:
+      tags: [Promotions]
+      summary: Listar promociones
+      responses:
+        '200':
+          description: Lista de promociones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Promotion' }
+    post:
+      tags: [Promotions]
+      summary: Crear promoción
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, discountType, discountValue]
+              properties:
+                code: { type: string }
+                discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
+                discountValue: { type: number }
+                isActive: { type: boolean }
+                maxUsages: { type: integer, nullable: true }
+      responses:
+        '201':
+          description: Promoción creada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Promotion' }
+
+  /promotions/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Promotions]
+      summary: Actualizar promoción
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
+                discountValue: { type: number }
+                isActive: { type: boolean }
+                maxUsages: { type: integer, nullable: true }
+      responses:
+        '200':
+          description: Promoción actualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Promotion' }
+    delete:
+      tags: [Promotions]
+      summary: Eliminar promoción
+      responses:
+        '200':
+          description: Promoción eliminada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+
+  # ==================== ADMIN (listados extras) ====================
+  /admin/reservations:
+    get:
+      tags: [Admin]
+      summary: Listar todas las reservas (admin)
+      responses:
+        '200':
+          description: Lista de reservas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Reservation' }
+
+tags:
+  - name: Reservations
+  - name: CheckIn
+  - name: PassengerServices
+  - name: Promotions
+  - name: Admin

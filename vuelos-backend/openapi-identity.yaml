@@ -1,0 +1,309 @@
+openapi: 3.0.3
+info:
+  title: Identity API - Yulieth Galarza
+  description: |
+    API REST para el módulo de identidad (usuarios y autenticación).
+    Desarrollado por Yulieth Galarza para la plataforma Booking académica.
+
+    **Versionamiento**: todas las rutas usan el prefijo `/api/v1/yulieth-galarza/`.
+
+    **API Pública**: NO requiere autenticación ni tokens JWT.
+  version: 1.0.0
+  contact:
+    name: Yulieth Galarza - Módulo Identity
+
+servers:
+  - url: https://ms-identity.onrender.com/api/v1/yulieth-galarza
+    description: Producción (Render)
+  - url: http://localhost:3001/api/v1/yulieth-galarza
+    description: Desarrollo local
+
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, example: true }
+        data: { type: object }
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: IDENTITY_VALIDATION_ERROR }
+            message: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: string, example: usr_yulieth_001 }
+        email: { type: string, format: email }
+        firstName: { type: string }
+        secondName: { type: string, nullable: true }
+        firstLastName: { type: string }
+        secondLastName: { type: string, nullable: true }
+        mainAddress: { type: string }
+        cityId: { type: string, description: "ID de la ciudad (referencia a ms_catalog)" }
+        phone: { type: string, nullable: true }
+        birthDate: { type: string, format: date, nullable: true }
+        role: { type: string, enum: [CUSTOMER, ADMIN, SERVICE], example: CUSTOMER }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Usuario no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, firstLastName, mainAddress]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                firstName: { type: string }
+                firstLastName: { type: string }
+                secondName: { type: string }
+                secondLastName: { type: string }
+                mainAddress: { type: string }
+                cityId: { type: string }
+                phone: { type: string }
+                birthDate: { type: string, format: date }
+      responses:
+        '201':
+          description: Usuario registrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: '#/components/schemas/User' }
+                          token: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: '#/components/schemas/User' }
+                          token: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Obtener perfil por ID
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Cambiar contraseña
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, currentPassword, newPassword]
+              properties:
+                userId: { type: string }
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 6 }
+      responses:
+        '200':
+          description: Contraseña actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Cerrar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: string }
+      responses:
+        '200':
+          description: Sesión cerrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message: { type: string }
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Listar todos los usuarios
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/User' }
+    post:
+      tags: [Admin]
+      summary: Crear usuario (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, firstLastName]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                firstName: { type: string }
+                firstLastName: { type: string }
+                mainAddress: { type: string }
+                role: { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
+                cityId: { type: string }
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/User' }
+
+  /admin/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      tags: [Admin]
+      summary: Actualizar usuario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName: { type: string }
+                firstLastName: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                role: { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
+                isActive: { type: boolean }
+                cityId: { type: string }
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/User' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Admin]
+      summary: Eliminar usuario
+      responses:
+        '200':
+          description: Usuario eliminado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+tags:
+  - name: Auth
+    description: Endpoints públicos de autenticación
+  - name: Admin
+    description: Administración de usuarios
