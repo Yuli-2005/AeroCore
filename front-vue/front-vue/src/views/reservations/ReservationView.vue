@@ -341,7 +341,7 @@ async function submitPayment() {
                     <label class="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
                     <input
                       v-model="pg.firstName"
-                      placeholder="Juan"
+                      placeholder="Yulieth"
                       class="w-full border-2 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
                       :class="submitted1 && !pg.firstName ? 'border-red-400' : 'border-gray-200'"
                     />
@@ -351,7 +351,7 @@ async function submitPayment() {
                     <label class="block text-xs font-semibold text-gray-500 mb-1.5">Apellido</label>
                     <input
                       v-model="pg.lastName"
-                      placeholder="Pérez"
+                      placeholder="Galarza"
                       class="w-full border-2 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
                       :class="submitted1 && !pg.lastName ? 'border-red-400' : 'border-gray-200'"
                     />
@@ -473,7 +473,7 @@ async function submitPayment() {
               <label class="block text-xs font-semibold text-gray-400 mb-1.5 uppercase tracking-wide">Nombre en la tarjeta</label>
               <input
                 v-model="paymentForm.cardholderName"
-                placeholder="JUAN PÉREZ"
+                placeholder="YULIETH GALARZA"
                 class="w-full border-2 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase font-bold tracking-wide transition-all"
                 :class="submitted2 && !paymentForm.cardholderName ? 'border-red-400' : 'border-gray-200'"
               />

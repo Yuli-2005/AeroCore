@@ -131,7 +131,7 @@ async function onSubmit() {
                   v-model="form.firstName"
                   @blur="touched.firstName = true"
                   type="text"
-                  placeholder="Juan"
+                  placeholder="Yulieth"
                   class="w-full px-3 py-2.5 border-2 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400 bg-gray-50/50"
                   :class="touched.firstName && !form.firstName.trim() ? 'border-red-400 bg-red-50/30' : 'border-gray-200'"
                 />
@@ -143,7 +143,7 @@ async function onSubmit() {
                   v-model="form.firstLastName"
                   @blur="touched.firstLastName = true"
                   type="text"
-                  placeholder="Pérez"
+                  placeholder="Galarza"
                   class="w-full px-3 py-2.5 border-2 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400 bg-gray-50/50"
                   :class="touched.firstLastName && !form.firstLastName.trim() ? 'border-red-400 bg-red-50/30' : 'border-gray-200'"
                 />
@@ -158,7 +158,7 @@ async function onSubmit() {
                 <input
                   v-model="form.secondName"
                   type="text"
-                  placeholder="Carlos"
+                  placeholder="Estefanía"
                   class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400 bg-gray-50/50"
                 />
               </div>
@@ -167,7 +167,7 @@ async function onSubmit() {
                 <input
                   v-model="form.secondLastName"
                   type="text"
-                  placeholder="García"
+                  placeholder="Galarza"
                   class="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400 bg-gray-50/50"
                 />
               </div>
