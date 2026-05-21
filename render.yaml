@@ -1,3 +1,9 @@
+databases:
+  - name: aerocore-db
+    databaseName: aerocore
+    user: aerocore_user
+    plan: free
+
 services:
   # BACKEND — Node.js API
   - type: web
@@ -6,17 +12,17 @@ services:
     region: oregon
     plan: free
     rootDir: vuelos-backend
-    buildCommand: npm install
+    buildCommand: npm install && npm run build && npx prisma db push --accept-data-loss && npm run db:seed
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: aerocore-db
+          property: connectionString
       - key: JWT_SECRET
-        sync: false
+        generateValue: true
       - key: JWT_ISSUER
         value: aerocore-api
       - key: JWT_AUDIENCE
@@ -24,17 +30,17 @@ services:
       - key: JWT_EXPIRES_IN
         value: 2h
       - key: FRONTEND_URL
-        value: https://aerocore-frontend.onrender.com   # Pon la URL real después de desplegar
+        value: https://aerocore-frontend.onrender.com
 
   # FRONTEND — Vue / Vite Static Site
   - type: static
     name: aerocore-frontend
-    rootDir: front-vue          # Ajusta según tu estructura real
+    rootDir: front-vue/front-vue
     buildCommand: npm install && npm run build
     publishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://aerocore-api.onrender.com/api/v1/yulieht-galarza   # Se inyecta en el build
+        value: https://aerocore-api.onrender.com/api/v1/yulieth-galarza
     routes:
       - type: rewrite
         source: /*

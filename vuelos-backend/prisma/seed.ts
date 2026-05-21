@@ -81,40 +81,48 @@ async function main() {
     create: { name: 'Maleta de Bodega 23kg', code: 'BAG_23KG', category: 'BAGGAGE' }
   });
 
-  await prisma.airlineServiceConfig.create({
-    data: { serviceId: bagService.id, airlineId: avianca.id, price: 35.00 }
+  const existingConfig = await prisma.airlineServiceConfig.findFirst({
+    where: { serviceId: bagService.id, airlineId: avianca.id }
   });
+  if (!existingConfig) {
+    await prisma.airlineServiceConfig.create({
+      data: { serviceId: bagService.id, airlineId: avianca.id, price: 35.00 }
+    });
+  }
 
   // 7. VUELOS CON SEGMENTOS (UIO -> BOG)
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const flightCount = await prisma.flight.count();
+  if (flightCount === 0) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-  await prisma.flight.create({
-    data: {
-      originAirportIata: 'UIO',
-      destinationAirportIata: 'BOG',
-      departureDate: tomorrow,
-      status: FlightStatus.SCHEDULED,
-      segments: {
-        create: {
-          segmentNumber: 'AV101',
-          originAirportId: aptUIO.id,
-          destinationAirportId: aptBOG.id,
-          departureDateTime: new Date(tomorrow.setHours(8, 0)),
-          arrivalDateTime: new Date(tomorrow.setHours(9, 30)),
-          airlineId: avianca.id,
-          aircraftId: aircraft.id,
-          estimatedDuration: 90
+    await prisma.flight.create({
+      data: {
+        originAirportIata: 'UIO',
+        destinationAirportIata: 'BOG',
+        departureDate: tomorrow,
+        status: FlightStatus.SCHEDULED,
+        segments: {
+          create: {
+            segmentNumber: 'AV101',
+            originAirportId: aptUIO.id,
+            destinationAirportId: aptBOG.id,
+            departureDateTime: new Date(tomorrow.setHours(8, 0)),
+            arrivalDateTime: new Date(tomorrow.setHours(9, 30)),
+            airlineId: avianca.id,
+            aircraftId: aircraft.id,
+            estimatedDuration: 90
+          }
+        },
+        flightClasses: {
+          create: [
+            { cabinClass: CabinClass.ECONOMY, availableSeats: 100, basePrice: 120.00 },
+            { cabinClass: CabinClass.BUSINESS, availableSeats: 10, basePrice: 350.00 }
+          ]
         }
-      },
-      flightClasses: {
-        create: [
-          { cabinClass: CabinClass.ECONOMY, availableSeats: 100, basePrice: 120.00 },
-          { cabinClass: CabinClass.BUSINESS, availableSeats: 10, basePrice: 350.00 }
-        ]
       }
-    }
-  });
+    });
+  }
 
   console.log('✅ Seed completado exitosamente con geografía y segmentos.');
 }
