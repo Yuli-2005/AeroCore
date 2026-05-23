@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
@@ -50,6 +50,17 @@ const route = useRoute();
 
 const user = computed(() => authStore.user);
 
+const mobileOpen = ref(false);
+const activeMobileGroup = ref<string | null>(null);
+
+function toggleMobileGroup(label: string) {
+  if (activeMobileGroup.value === label) {
+    activeMobileGroup.value = null;
+  } else {
+    activeMobileGroup.value = label;
+  }
+}
+
 function logout() {
   authStore.clearAuth();
   router.push('/login');
@@ -64,70 +75,222 @@ function isActiveRoute(path: string, exact: boolean = false): boolean {
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-gray-100">
-    <!-- Sidebar -->
-    <aside class="w-60 bg-gray-900 flex flex-col flex-shrink-0">
-      <!-- Sidebar Header -->
-      <div class="h-16 flex items-center px-5 border-b border-gray-800 flex-shrink-0">
-        <router-link to="/" class="flex items-center gap-2 text-white font-bold">
-          <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <div class="min-h-screen flex flex-col bg-slate-50 font-sans">
+    <!-- Top Navbar -->
+    <nav class="h-20 bg-[#231548] border-b border-[#3a256b] flex items-center justify-between px-6 shadow-xl sticky top-0 z-30 flex-shrink-0">
+      <!-- Left Logo -->
+      <router-link to="/" class="flex items-center gap-3 group flex-shrink-0">
+        <div class="w-10 h-10 rounded-xl gradient-brand flex items-center justify-center shadow-lg shadow-purple-500/10 group-hover:scale-105 transition-transform duration-300">
+          <svg class="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
           </svg>
-          <span>Admin Panel</span>
-        </router-link>
-      </div>
+        </div>
+        <div class="flex flex-col">
+          <span class="font-extrabold text-sm tracking-tight text-white leading-none">
+            <span class="gradient-brand-text">Aero</span>Core
+          </span>
+          <span class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Admin Panel</span>
+        </div>
+      </router-link>
 
-      <!-- Navigation links -->
-      <nav class="flex-1 py-3 px-3 overflow-y-auto space-y-4">
-        <div v-for="group in NAV_GROUPS" :key="group.label">
-          <p class="text-xs font-semibold text-gray-600 uppercase tracking-wider px-3 mb-1">{{ group.label }}</p>
-          <div class="space-y-0.5">
+      <!-- Center Links (Desktop Nav) -->
+      <div class="hidden lg:flex items-center gap-1.5">
+        <template v-for="group in NAV_GROUPS" :key="group.label">
+          <!-- Direct link for General (Dashboard) -->
+          <template v-if="group.label === 'General'">
             <router-link
               v-for="item in group.items"
               :key="item.path"
               :to="item.path"
-              class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+              class="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-200"
               :class="
                 isActiveRoute(item.path, item.end)
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  ? 'bg-[#5c5bf5] text-white shadow-md shadow-[#5c5bf5]/15'
+                  : 'text-[#c7c0e8] hover:text-white hover:bg-[#34206c]/85'
               "
             >
               <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
               </svg>
-              <span class="truncate">{{ item.label }}</span>
-              <svg class="w-3 h-3 ml-auto opacity-40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
+              <span>{{ item.label }}</span>
             </router-link>
+          </template>
+          
+          <!-- Dropdowns for other groups -->
+          <div v-else class="relative group">
+            <button 
+              class="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer"
+              :class="
+                group.items.some(item => isActiveRoute(item.path, item.end))
+                  ? 'text-white bg-[#34206c]/60'
+                  : 'text-[#c7c0e8] hover:text-white hover:bg-[#34206c]/85'
+              "
+            >
+              <span>{{ group.label }}</span>
+              <svg class="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-180 text-[#b3acdf]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <!-- Dropdown content -->
+            <div class="absolute left-0 mt-2 w-60 bg-[#2c1a59] border border-[#442c85]/70 rounded-2xl shadow-xl p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 transform origin-top scale-95 group-hover:scale-100">
+              <div class="space-y-0.5">
+                <router-link
+                  v-for="item in group.items"
+                  :key="item.path"
+                  :to="item.path"
+                  class="flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
+                  :class="
+                    isActiveRoute(item.path, item.end)
+                      ? 'bg-[#5c5bf5] text-white shadow-md'
+                      : 'text-[#c7c0e8] hover:text-white hover:bg-[#34206c]/60'
+                  "
+                >
+                  <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                  </svg>
+                  <span class="truncate">{{ item.label }}</span>
+                </router-link>
+              </div>
+            </div>
           </div>
-        </div>
-      </nav>
+        </template>
+      </div>
 
-      <!-- Sidebar Profile Area -->
-      <div class="border-t border-gray-800 p-4 flex-shrink-0">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+      <!-- Right User profile area (Desktop) -->
+      <div class="hidden lg:flex items-center gap-4 flex-shrink-0">
+        <div class="flex items-center gap-2.5 bg-[#2c1a59]/50 border border-[#442c85]/45 px-3 py-1.5 rounded-full">
+          <div class="w-7.5 h-7.5 rounded-full gradient-brand text-white flex items-center justify-center font-bold text-xs shadow-md border border-white/10 flex-shrink-0">
             {{ user?.firstName?.charAt(0)?.toUpperCase() }}
           </div>
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-white truncate">{{ user?.firstName }} {{ user?.firstLastName }}</p>
-            <p class="text-xs text-gray-500 truncate">{{ user?.email }}</p>
+          <div class="text-left hidden xl:block pr-1">
+            <p class="text-[11px] font-bold text-white leading-tight truncate max-w-[100px]">{{ user?.firstName }}</p>
+            <p class="text-[9px] text-[#b3acdf] font-medium leading-none truncate max-w-[100px]">{{ user?.role }}</p>
           </div>
         </div>
-        <button @click="logout" class="w-full flex items-center gap-2 text-xs text-gray-500 hover:text-red-400 transition-colors py-1">
+        
+        <button 
+          @click="logout" 
+          class="flex items-center justify-center gap-1.5 text-xs text-[#c7c0e8] hover:text-red-400 bg-[#2c1a59]/45 hover:bg-red-500/10 border border-[#442c85]/45 hover:border-red-500/20 rounded-full px-4 py-2 transition-all duration-200 font-semibold"
+        >
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Cerrar sesión
+          <span>Salir</span>
         </button>
       </div>
-    </aside>
 
-    <!-- Contenido -->
-    <div class="flex-1 flex flex-col overflow-auto">
-      <main class="flex-1 p-8">
+      <!-- Mobile controls (Hamburger + profile info placeholder) -->
+      <div class="flex lg:hidden items-center gap-3">
+        <div class="w-8 h-8 rounded-full gradient-brand text-white flex items-center justify-center font-bold text-xs shadow-md border border-white/10">
+          {{ user?.firstName?.charAt(0)?.toUpperCase() }}
+        </div>
+        <button 
+          @click="mobileOpen = !mobileOpen" 
+          class="flex items-center justify-center w-10 h-10 rounded-xl hover:bg-[#34206c]/60 text-white transition-colors cursor-pointer"
+        >
+          <svg v-if="!mobileOpen" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mobile Navigation Drawer -->
+      <div 
+        v-if="mobileOpen" 
+        class="lg:hidden absolute top-20 left-0 w-full bg-[#231548] border-b border-[#3a256b] shadow-2xl z-40 overflow-y-auto max-h-[calc(100vh-5rem)] p-5 space-y-4 animate-fade-in"
+      >
+        <div class="space-y-4">
+          <div v-for="group in NAV_GROUPS" :key="group.label" class="space-y-2">
+            <!-- Mobile Group Header -->
+            <button 
+              @click="toggleMobileGroup(group.label)" 
+              class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider text-[#b3acdf] hover:text-white hover:bg-[#34206c]/40 transition-colors cursor-pointer"
+            >
+              <span>{{ group.label }}</span>
+              <svg 
+                v-if="group.label !== 'General'" 
+                class="w-4 h-4 transition-transform duration-200" 
+                :class="activeMobileGroup === group.label ? 'rotate-180' : ''"
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <!-- Mobile Group Items -->
+            <div 
+              v-if="group.label === 'General' || activeMobileGroup === group.label" 
+              class="space-y-1 pl-3"
+            >
+              <router-link
+                v-for="item in group.items"
+                :key="item.path"
+                :to="item.path"
+                @click="mobileOpen = false"
+                class="flex items-center gap-3 px-4 py-2.5 rounded-full text-xs font-semibold transition-all duration-200"
+                :class="
+                  isActiveRoute(item.path, item.end)
+                    ? 'bg-[#5c5bf5] text-white shadow-lg shadow-[#5c5bf5]/15'
+                    : 'text-[#c7c0e8] hover:text-white hover:bg-[#34206c]/85'
+                "
+              >
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                </svg>
+                <span>{{ item.label }}</span>
+              </router-link>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Mobile Profile Area inside Drawer -->
+        <div class="border-t border-[#3a256b]/65 pt-4 mt-4 space-y-3">
+          <div class="flex items-center gap-3 px-3 py-2 bg-[#2c1a59]/50 border border-[#442c85]/45 rounded-2xl">
+            <div class="w-8 h-8 rounded-full gradient-brand text-white flex items-center justify-center font-bold text-sm shadow-md">
+              {{ user?.firstName?.charAt(0)?.toUpperCase() }}
+            </div>
+            <div>
+              <p class="text-xs font-bold text-white">{{ user?.firstName }} {{ user?.firstLastName }}</p>
+              <p class="text-[10px] text-[#b3acdf] font-semibold mt-0.5">{{ user?.email }}</p>
+            </div>
+          </div>
+          
+          <button 
+            @click="logout(); mobileOpen = false" 
+            class="w-full flex items-center justify-center gap-2 text-xs text-[#c7c0e8] hover:text-red-400 bg-[#2c1a59]/45 hover:bg-red-500/10 border border-[#442c85]/45 hover:border-red-500/20 rounded-xl py-3 transition-all duration-200 font-semibold"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Breadcrumbs / Page Title bar -->
+    <header class="h-14 bg-white border-b border-slate-100 flex items-center justify-between px-8 z-10 flex-shrink-0 shadow-sm">
+      <div class="flex items-center gap-2 text-sm font-semibold text-slate-500">
+        <span>Administración</span>
+        <span class="text-slate-300">/</span>
+        <span class="text-slate-800 font-bold capitalize">{{ route.path.split('/').pop()?.replace('-', ' ') }}</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-400 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
+          Rol: <span class="text-[#5c5bf5] font-black">{{ user?.role }}</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- Content Area -->
+    <div class="flex-1 overflow-auto bg-slate-50">
+      <main class="p-8 max-w-7xl w-full mx-auto animate-fade-in">
         <router-view />
       </main>
     </div>

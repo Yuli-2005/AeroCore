@@ -1,10 +1,10 @@
 import { PrismaClient } from './prisma-client/index.js';
 
 const urls = {
-  identity: "postgresql://postgres:Yuli%402005%2C.%2C@db.stdgavgnqdrvxiedblmy.supabase.co:5432/postgres",
-  catalog: "postgresql://postgres:Yuli%402005%2C.%2C@db.hsdzimksgiajklxbjzaa.supabase.co:5432/postgres",
-  booking: "postgresql://postgres:Yuli%402005%2C.%2C@db.fxxxqmajmkyizeacxdmz.supabase.co:5432/postgres",
-  payments: "postgresql://postgres:Yuli%402005%2C.%2C@db.yscdzivpnaslvzhhdgzf.supabase.co:5432/postgres"
+  identity: "postgresql://postgres.stdgavgnqdrvxiedblmy:Yuli%402005%2C.%2C@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require",
+  catalog: "postgresql://postgres.hsdzimksgiajklxbjzaa:Yuli%402005%2C.%2C@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require",
+  booking: "postgresql://postgres.fxxxqmajmkyizeacxdmz:Yuli%402005%2C.%2C@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require",
+  payments: "postgresql://postgres.yscdzivpnaslvzhhdgzf:Yuli%402005%2C.%2C@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require"
 };
 
 async function testAll() {

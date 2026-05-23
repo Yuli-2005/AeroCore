@@ -21,9 +21,20 @@ export class AuthService implements IAuthService {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
+      secondName: user.secondName ?? null,
       firstLastName: user.firstLastName,
-      role: user.role,
+      secondLastName: user.secondLastName ?? null,
+      mainAddress: user.mainAddress ?? '',
+      cityId: user.cityId,
       phone: user.phone ?? null,
+      birthDate: user.birthDate
+        ? (user.birthDate instanceof Date ? user.birthDate : new Date(user.birthDate)).toISOString().split('T')[0]
+        : null,
+      role: user.role,
+      isActive: user.isActive ?? true,
+      createdAt: user.createdAt
+        ? (user.createdAt instanceof Date ? user.createdAt : new Date(user.createdAt)).toISOString()
+        : new Date().toISOString(),
     };
   }
 

@@ -1,6 +1,7 @@
 // presentation/controllers/AuthController.ts
 import { Request, Response, NextFunction } from 'express';
 import { IAuthService } from '../interfaces/IAuthService.js';
+import { ForbiddenException } from '../../../shared/exceptions/BusinessException.js';
 
 export class AuthController {
   constructor(private readonly authService: IAuthService) {}
@@ -21,7 +22,11 @@ export class AuthController {
 
   me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const user = await this.authService.getProfile(req.user!.id);
+      const userId = (req.query.userId as string) || req.user!.id;
+      if (req.user!.id !== userId && req.user!.role !== 'ADMIN') {
+        throw new ForbiddenException('No tienes permisos para acceder a esta información');
+      }
+      const user = await this.authService.getProfile(userId);
       res.status(200).json({ success: true, data: user });
     } catch (err) { next(err); }
   };

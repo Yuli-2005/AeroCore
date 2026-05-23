@@ -72,8 +72,15 @@
  * /auth/me:
  *   get:
  *     tags: [Auth]
- *     summary: Perfil del usuario autenticado
+ *     summary: Perfil del usuario autenticado o por userId
  *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID del usuario a consultar
  *     responses:
  *       200:
  *         description: Datos del usuario
@@ -87,6 +94,10 @@
  *                     data: { $ref: '#/components/schemas/User' }
  *       401:
  *         description: Token ausente o inválido
+ *       403:
+ *         description: No tienes permisos para acceder a esta información
+ *       404:
+ *         description: Usuario no encontrado
  *
  * /auth/profile:
  *   put:

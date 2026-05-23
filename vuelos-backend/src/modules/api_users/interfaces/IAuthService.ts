@@ -38,9 +38,16 @@ export interface AuthResponseDto {
     id: string;
     email: string;
     firstName: string;
+    secondName: string | null;
     firstLastName: string;
-    role: string;
+    secondLastName: string | null;
+    mainAddress: string;
+    cityId: string;
     phone: string | null;
+    birthDate: string | null;
+    role: string;
+    isActive: boolean;
+    createdAt: string;
   };
   token: string;
 }

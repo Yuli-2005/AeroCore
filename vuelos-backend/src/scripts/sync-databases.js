@@ -1,10 +1,10 @@
 import { execSync } from 'child_process';
 
 const databases = [
-  { name: 'ms_identity (stdgavgnqdrvxiedblmy)', url: 'postgresql://postgres:Yuli%402005%2C.%2C@db.stdgavgnqdrvxiedblmy.supabase.co:5432/postgres' },
-  { name: 'ms_catalog (hsdzimksgiajklxbjzaa)', url: 'postgresql://postgres:Yuli%402005%2C.%2C@db.hsdzimksgiajklxbjzaa.supabase.co:5432/postgres' },
-  { name: 'ms_booking (fxxxqmajmkyizeacxdmz)', url: 'postgresql://postgres:Yuli%402005%2C.%2C@db.fxxxqmajmkyizeacxdmz.supabase.co:5432/postgres' },
-  { name: 'ms_payments (yscdzivpnaslvzhhdgzf)', url: 'postgresql://postgres:Yuli%402005%2C.%2C@db.yscdzivpnaslvzhhdgzf.supabase.co:5432/postgres' }
+  { name: 'ms_identity (stdgavgnqdrvxiedblmy)', url: 'postgresql://postgres.stdgavgnqdrvxiedblmy:Yuli%402005%2C.%2C@aws-0-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require' },
+  { name: 'ms_catalog (hsdzimksgiajklxbjzaa)', url: 'postgresql://postgres.hsdzimksgiajklxbjzaa:Yuli%402005%2C.%2C@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require' },
+  { name: 'ms_booking (fxxxqmajmkyizeacxdmz)', url: 'postgresql://postgres.fxxxqmajmkyizeacxdmz:Yuli%402005%2C.%2C@aws-0-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require' },
+  { name: 'ms_payments (yscdzivpnaslvzhhdgzf)', url: 'postgresql://postgres.yscdzivpnaslvzhhdgzf:Yuli%402005%2C.%2C@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require' }
 ];
 
 console.log('🚀 Iniciando sincronización de las 4 bases de datos de Supabase...\n');
