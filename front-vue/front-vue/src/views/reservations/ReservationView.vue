@@ -101,9 +101,12 @@ function stepClass(n: number) {
   return 'bg-gray-200 text-gray-500';
 }
 
+const createdReservation = ref<any | null>(null);
+
 function goBack() {
   if (step.value === 2) {
     step.value = 1;
+    createdReservation.value = null;
   } else {
     router.push('/results');
   }
@@ -128,9 +131,11 @@ async function validatePromo() {
   try {
     const res = await promotionsService.validate(promoCode.value, base);
     promoResult.value = res;
+    createdReservation.value = null; // Clear cached reservation if promo changes
   } catch (err: any) {
     promoError.value = err?.message || 'Código inválido';
     promoResult.value = null;
+    createdReservation.value = null;
   } finally {
     promoLoading.value = false;
   }
@@ -175,11 +180,16 @@ async function submitPayment() {
   errorMsg.value = null;
 
   try {
-    const reservation = await reservationsService.create({
-      flightClassId: flightClassId.value,
-      passengers: passengers.value,
-      promotionCode: promoResult.value ? promoCode.value : undefined,
-    });
+    let reservation = createdReservation.value;
+
+    if (!reservation) {
+      reservation = await reservationsService.create({
+        flightClassId: flightClassId.value,
+        passengers: passengers.value,
+        promotionCode: promoResult.value ? promoCode.value : undefined,
+      });
+      createdReservation.value = reservation;
+    }
 
     const payment = await paymentsService.create({
       reservationId: reservation.id,
@@ -207,7 +217,7 @@ async function submitPayment() {
       }
     }, 1200);
   } catch (err: any) {
-    errorMsg.value = err?.response?.data?.error?.message || err?.message || 'Error al crear la reserva';
+    errorMsg.value = err?.response?.data?.error?.message || err?.message || 'Error al procesar el pago';
     payLoading.value = false;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
