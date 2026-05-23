@@ -14,7 +14,8 @@ const options: swaggerJsdoc.Options = {
       },
     },
     servers: [
-      { url: 'https://integracion-sistemas2026.onrender.com/api/v1/yulieth-galarza', description: 'Produccion (Render)' },
+      { url: 'https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza', description: 'Producción AeroCore (Render)' },
+      { url: 'https://integracion-sistemas2026.onrender.com/api/v1/yulieth-galarza', description: 'Producción Aula (Render)' },
       { url: 'http://localhost:3000/api/v1/yulieth-galarza', description: 'Desarrollo local' },
     ],
     components: {

@@ -13,8 +13,10 @@ info:
     name: Yulieth Galarza - Módulo Vuelos
 
 servers:
-  - url: https://ms-catalog.onrender.com/api/v1/yulieth-galarza
-    description: Producción (Render)
+  - url: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
+    description: Producción AeroCore (Render)
+  - url: https://integracion-sistemas2026.onrender.com/api/v1/yulieth-galarza
+    description: Producción Aula (Render)
   - url: http://localhost:3000/api/v1/yulieth-galarza
     description: Desarrollo local
 
