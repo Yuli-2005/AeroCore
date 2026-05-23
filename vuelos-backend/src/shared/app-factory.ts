@@ -6,11 +6,17 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:4200',
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:3003',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:4200',
   'https://integracion-sistemas2026.onrender.com',
   'https://mango-meadow-0d3fdd810.7.azurestaticapps.net',
+  'https://aerocore-frontend-issd.onrender.com',
+  'https://aerocore-api-issd.onrender.com',
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
@@ -31,6 +37,16 @@ export function createServiceApp(serviceName: string): Express {
     origin(origin, cb) {
       if (!origin) return cb(null, true); // llamadas internas del gateway
       if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      const isLocal = /^http:\/\/localhost(:\d+)?$/.test(origin) || /^http:\/\/127\.0\.0\.1(:\d+)?$/.test(origin);
+      const isRender = /\.onrender\.com$/.test(origin);
+      const isSwagger = /swagger\.io$/.test(origin);
+
+      if (isLocal || isRender || isSwagger) {
+        return cb(null, true);
+      }
+
+      console.warn('⚠️  CORS bloqueado en microservicio:', origin);
       cb(new Error('Not allowed by CORS'));
     },
     credentials: false,
