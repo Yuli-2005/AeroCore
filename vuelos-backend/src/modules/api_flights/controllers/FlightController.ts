@@ -25,6 +25,13 @@ export class FlightController {
     } catch (err) { next(err); }
   };
 
+  getAvailability = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const flight = await this.flightService.getById(String(req.params.flightId));
+      res.json({ success: true, data: flight.flightClasses });
+    } catch (err) { next(err); }
+  };
+
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.flightService.getById(String(req.params.id));

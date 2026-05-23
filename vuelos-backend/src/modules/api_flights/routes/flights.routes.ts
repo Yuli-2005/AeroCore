@@ -9,6 +9,7 @@ export function createFlightRouter(controller: FlightController): Router {
   const router = Router();
   router.get('/',         controller.list);
   router.get('/search',   validateQuery(FlightSearchQuerySchema), controller.search);
+  router.get('/:flightId/availability', controller.getAvailability);
   router.get('/:id',      controller.getById);
   router.post('/',        authenticate, requireAdmin, validate(CreateFlightSchema), controller.create);
   router.put('/:id',      authenticate, requireAdmin, validate(UpdateFlightSchema), controller.update);

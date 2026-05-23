@@ -195,6 +195,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Interceptor de Respuestas (Envelope de Integración) ───────
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body: any) {
+    if (body && typeof body === 'object' && body.success === true && 'data' in body) {
+      body.owner = "Yulieth Galarza";
+      body.api = "Yulieth Galarza Booking API";
+      body.version = "1.0.0";
+      body.module = "booking";
+      body.visibility = "public";
+      body.auth = req.headers.authorization ? "bearer" : "none";
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
     res.setHeader('Cache-Control', 'no-store');
@@ -217,36 +234,13 @@ if (process.env.NODE_ENV === 'development') {
 
 app.get(['/', '/api/v1', '/api/v1/yulieth-galarza'], (_req, res) => {
   res.json({
-    service: 'Vuelos API',
-    version: '1.0.0',
-    status: 'online',
-    architecture: 'Clean Architecture (Domain / Application / Infrastructure / Presentation)',
-    tables: 22,
-    endpoints: {
-      auth:                  '/api/v1/yulieth-galarza/auth',
-      flights:               '/api/v1/yulieth-galarza/flights',
-      reservations:          '/api/v1/yulieth-galarza/reservations',
-      promotions:            '/api/v1/yulieth-galarza/promotions',
-      countries:             '/api/v1/yulieth-galarza/countries',
-      cities:                '/api/v1/yulieth-galarza/cities',
-      airports:              '/api/v1/yulieth-galarza/airports',
-      airlines:              '/api/v1/yulieth-galarza/airlines',
-      aircraft:              '/api/v1/yulieth-galarza/aircraft',
-      airlineAirports:       '/api/v1/yulieth-galarza/airline-airports',
-      airlineServiceConfig:  '/api/v1/yulieth-galarza/airline-service-config',
-      flightClasses:         '/api/v1/yulieth-galarza/flight-classes',
-      segments:              '/api/v1/yulieth-galarza/segments',
-      serviceCatalog:        '/api/v1/yulieth-galarza/service-catalog',
-      billingProfiles:       '/api/v1/yulieth-galarza/billing-profiles',
-      boardingPasses:        '/api/v1/yulieth-galarza/boarding-passes',
-      payments:              '/api/v1/yulieth-galarza/payments',
-      invoices:              '/api/v1/yulieth-galarza/invoices',
-      invoiceItems:          '/api/v1/yulieth-galarza/invoice-items',
-      passengerServices:     '/api/v1/yulieth-galarza/passenger-services',
-      reservationPassengers: '/api/v1/yulieth-galarza/reservation-passengers',
-      auditLogs:             '/api/v1/yulieth-galarza/audit-logs',
-      admin:                 '/api/v1/yulieth-galarza/admin',
-    },
+    success: true,
+    data: {
+      status: 'online',
+      endpoints: 10,
+      tables: 22,
+      architecture: 'Clean Architecture (Domain / Application / Infrastructure / Presentation)'
+    }
   });
 });
 

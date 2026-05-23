@@ -1,110 +1,300 @@
 openapi: 3.0.3
 info:
-  title: Booking API - Reservas y Check-in - Yulieth Galarza
-  description: |
-    API REST para el módulo de reservas, check-in y promociones.
-    Desarrollado por Yulieth Galarza para la plataforma Booking académica.
-
-    **Versionamiento**: todas las rutas usan el prefijo `/api/v1/yulieth-galarza/`.
-
-    **API Pública**: NO requiere autenticación.
-  version: 1.0.0
-  contact:
-    name: Yulieth Galarza - Módulo Booking
+  title: "Yulieth Galarza Booking API"
+  version: "1.0.0"
+  description: "API publica para que Booking consulte vuelos y realice reservas desde el modulo de vuelos de Yulieth Galarza"
 
 servers:
   - url: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
     description: Producción AeroCore (Render)
-  - url: https://integracion-sistemas2026.onrender.com/api/v1/yulieth-galarza
-    description: Producción Aula (Render)
   - url: http://localhost:3000/api/v1/yulieth-galarza
     description: Desarrollo local
 
+security: []
+
+# ============================================================
+#   SCHEMAS
+# ============================================================
 components:
   schemas:
-    SuccessResponse:
+
+    MetaEnvelope:
       type: object
-      required: [success, data]
       properties:
-        success: { type: boolean, example: true }
-        data: { type: object }
+        success:    { type: boolean, example: true }
+        owner:      { type: string,  example: "Yulieth Galarza" }
+        api:        { type: string,  example: "Yulieth Galarza Booking API" }
+        version:    { type: string,  example: "1.0.0" }
+        module:     { type: string,  example: "booking" }
+        visibility: { type: string,  example: "public" }
+        auth:       { type: string,  example: "none" }
+        data:       {}
+
     ErrorResponse:
       type: object
-      required: [success, error]
       properties:
         success: { type: boolean, example: false }
         error:
           type: object
-          required: [code, message]
           properties:
-            code: { type: string }
-            message: { type: string }
+            code:    { type: string,  example: "NOT_FOUND" }
+            message: { type: string,  example: "Descripción del error" }
+
+    Airport:
+      type: object
+      properties:
+        id:       { type: string }
+        iataCode: { type: string, example: "UIO" }
+        name:     { type: string, example: "Aeropuerto Mariscal Sucre" }
+        timezone: { type: string, example: "America/Guayaquil" }
+        city:
+          type: object
+          properties:
+            id:   { type: string }
+            name: { type: string, example: "Quito" }
+            country:
+              type: object
+              properties:
+                id:      { type: string }
+                name:    { type: string, example: "Ecuador" }
+                isoCode: { type: string, example: "EC" }
+
+    FlightClass:
+      type: object
+      properties:
+        id:             { type: string }
+        flightId:       { type: string }
+        cabinClass:     { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+        availableSeats: { type: integer, minimum: 0 }
+        basePrice:      { type: number,  example: 89.00 }
+
+    Flight:
+      type: object
+      properties:
+        id:                     { type: string }
+        flightNumber:           { type: string, nullable: true }
+        originAirportIata:      { type: string, example: "UIO" }
+        destinationAirportIata: { type: string, example: "BOG" }
+        departureDate:          { type: string, format: date }
+        departureDateTime:      { type: string, format: date-time, nullable: true }
+        arrivalDateTime:        { type: string, format: date-time, nullable: true }
+        duration:               { type: integer, description: "Duración total en minutos", nullable: true }
+        stops:                  { type: integer, nullable: true }
+        lowestPrice:            { type: number,  nullable: true }
+        status:                 { type: string, enum: [SCHEDULED, DELAYED, CANCELLED, COMPLETED] }
+        airline:
+          nullable: true
+          type: object
+          properties:
+            id:       { type: string }
+            iataCode: { type: string, example: "AV" }
+            name:     { type: string, example: "Avianca" }
+            logoUrl:  { type: string, nullable: true }
+        flightClasses:
+          type: array
+          items: { $ref: '#/components/schemas/FlightClass' }
 
     Passenger:
       type: object
+      required: [firstName, lastName, documentNumber]
       properties:
-        id: { type: string }
-        firstName: { type: string }
-        lastName: { type: string }
-        documentNumber: { type: string }
-        seatNumber: { type: string, nullable: true }
-        flightClassId: { type: string }
-
-    Promotion:
-      type: object
-      properties:
-        id: { type: string }
-        code: { type: string }
-        discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
-        discountValue: { type: number }
-        maxUsages: { type: integer, nullable: true }
-        currentUsages: { type: integer }
-        isActive: { type: boolean }
+        firstName:      { type: string, example: "Juan" }
+        lastName:       { type: string, example: "Pérez" }
+        documentNumber: { type: string, example: "1234567890" }
+        seatNumber:     { type: string, nullable: true, example: "14C" }
+        flightClassId:  { type: string }
 
     Reservation:
       type: object
       properties:
-        id: { type: string }
-        reservationCode: { type: string }
-        status: { type: string, enum: [PENDING, CONFIRMED, CANCELLED] }
-        totalAmount: { type: number }
-        createdAt: { type: string, format: date-time }
-        userId: { type: string }
-        flightId: { type: string }
-        promotionId: { type: string, nullable: true }
-        passengers: { type: array, items: { $ref: '#/components/schemas/Passenger' } }
+        id:              { type: string }
+        reservationCode: { type: string, example: "A3F7B2C1" }
+        status:          { type: string, enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED] }
+        totalAmount:     { type: number }
+        createdAt:       { type: string, format: date-time }
+        flightId:        { type: string }
+        promotionId:     { type: string, nullable: true }
+        passengers:
+          type: array
+          items: { $ref: '#/components/schemas/Passenger' }
 
-    BoardingPass:
+    Payment:
       type: object
       properties:
-        id: { type: string }
-        passengerId: { type: string }
-        segmentId: { type: string }
-        boardingCode: { type: string }
-        gate: { type: string, nullable: true }
-        boardingGroup: { type: string, nullable: true }
-        checkInAt: { type: string, format: date-time, nullable: true }
-        status: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, BOARDED, NO_SHOW] }
-
-    PassengerService:
-      type: object
-      properties:
-        id: { type: string }
-        passengerId: { type: string }
-        serviceConfigId: { type: string }
-        quantity: { type: integer }
-        unitPriceAtBooking: { type: number }
+        id:            { type: string }
+        reservationId: { type: string }
+        amount:        { type: number }
+        provider:      { type: string, example: "VISA" }
+        transactionId: { type: string }
+        status:        { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED] }
+        createdAt:     { type: string, format: date-time }
 
   responses:
-    BadRequest: { description: Datos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
-    NotFound: { description: Recurso no encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/ErrorResponse' } } } }
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    BadRequest:
+      description: Datos de entrada inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+# ============================================================
+#   PATHS
+# ============================================================
 paths:
-  # ==================== RESERVAS ====================
+
+  # ── ESTADO DE LA API ─────────────────────────────────────────
+  /:
+    get:
+      tags: [Status]
+      summary: Estado de la API
+      description: Retorna información general del servicio, módulo y visibilidad.
+      responses:
+        '200':
+          description: API operativa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:       { type: string, example: "online" }
+                          endpoints:    { type: integer, example: 10 }
+
+  # ── AIRPORTS ─────────────────────────────────────────────────
+  /airports:
+    get:
+      tags: [Airports]
+      summary: Listar aeropuertos
+      description: Retorna la lista completa de aeropuertos con ciudad y país.
+      responses:
+        '200':
+          description: Lista de aeropuertos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Airport' }
+
+  # ── FLIGHTS ──────────────────────────────────────────────────
+  /flights/search:
+    get:
+      tags: [Flights]
+      summary: Buscar vuelos disponibles
+      description: Filtra vuelos por origen, destino, fecha, número de pasajeros y clase de cabina.
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema: { type: string, example: "UIO" }
+          description: Código IATA del aeropuerto de origen
+        - name: destination
+          in: query
+          required: true
+          schema: { type: string, example: "BOG" }
+          description: Código IATA del aeropuerto de destino
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2025-06-15" }
+          description: Fecha de salida (YYYY-MM-DD)
+        - name: passengers
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1, example: 2 }
+          description: Número de pasajeros
+        - name: class
+          in: query
+          required: false
+          schema: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST], default: ECONOMY }
+          description: Clase de cabina deseada
+      responses:
+        '200':
+          description: Vuelos encontrados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Flight' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /flights/{flightId}:
+    parameters:
+      - name: flightId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del vuelo
+    get:
+      tags: [Flights]
+      summary: Detalle de un vuelo
+      responses:
+        '200':
+          description: Vuelo encontrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Flight' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /flights/{flightId}/availability:
+    parameters:
+      - name: flightId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del vuelo
+    get:
+      tags: [Flights]
+      summary: Disponibilidad de asientos por clase
+      description: Retorna las clases de vuelo con asientos disponibles y precio base.
+      responses:
+        '200':
+          description: Disponibilidad por clase
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/FlightClass' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── RESERVATIONS ─────────────────────────────────────────────
   /reservations:
     post:
       tags: [Reservations]
       summary: Crear reserva
+      description: |
+        Crea una reserva de forma atómica:
+        1. Verifica disponibilidad de asientos
+        2. Aplica descuento si se envía `promotionCode`
+        3. Crea la reserva y sus pasajeros
+        4. Decrementa `availableSeats`
       requestBody:
         required: true
         content:
@@ -113,78 +303,52 @@ paths:
               type: object
               required: [flightClassId, passengers]
               properties:
-                flightClassId: { type: string }
+                flightClassId:
+                  type: string
+                  format: uuid
+                  example: "clx1abc-def-ghi"
                 passengers:
                   type: array
+                  minItems: 1
                   items:
                     type: object
                     required: [firstName, lastName, documentNumber]
                     properties:
-                      firstName: { type: string }
-                      lastName: { type: string }
-                      documentNumber: { type: string }
-                      seatNumber: { type: string, nullable: true }
-                promotionCode: { type: string }
+                      firstName:      { type: string, example: "Juan" }
+                      lastName:       { type: string, example: "Pérez" }
+                      documentNumber: { type: string, example: "1234567890" }
+                      seatNumber:     { type: string, nullable: true, example: "14C" }
+                promotionCode:
+                  type: string
+                  example: "VERANO25"
       responses:
         '201':
-          description: Reserva creada
+          description: Reserva creada exitosamente
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/MetaEnvelope'
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Reservation' }
-    get:
-      tags: [Reservations]
-      summary: Listar todas las reservas
-      responses:
-        '200':
-          description: Lista de reservas
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422':
+          description: Sin disponibilidad de asientos
           content:
             application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/Reservation' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
-  /reservations/my:
-    get:
-      tags: [Reservations]
-      summary: Mis reservas (por userId)
-      parameters:
-        - name: userId
-          in: query
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Reservas del usuario
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/Reservation' }
-
-  /reservations/{id}:
+  /reservations/{reservationId}:
     parameters:
-      - name: id
+      - name: reservationId
         in: path
         required: true
         schema: { type: string }
+        description: ID de la reserva
     get:
       tags: [Reservations]
-      summary: Detalle de reserva
+      summary: Obtener detalle de una reserva
       responses:
         '200':
           description: Reserva encontrada
@@ -192,14 +356,31 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/MetaEnvelope'
                   - type: object
                     properties:
                       data: { $ref: '#/components/schemas/Reservation' }
         '404': { $ref: '#/components/responses/NotFound' }
-    delete:
+
+  /reservations/{reservationId}/cancel:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID de la reserva a cancelar
+    patch:
       tags: [Reservations]
-      summary: Cancelar reserva (DELETE)
+      summary: Cancelar reserva
+      description: |
+        Cancela la reserva en una sola transacción atómica:
+        - Estado → `CANCELLED`
+        - Restaura `availableSeats` en la clase de vuelo
+        - Decrementa `currentUsages` de la promoción si aplica
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         '200':
           description: Reserva cancelada
@@ -207,202 +388,59 @@ paths:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/MetaEnvelope'
                   - type: object
                     properties:
                       data:
                         type: object
                         properties:
-                          cancelled: { type: boolean }
-                          reservationCode: { type: string }
+                          cancelled:       { type: boolean, example: true }
+                          reservationCode: { type: string, example: "A3F7B2C1" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
-  /reservations/{id}/cancel:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string }
-    patch:
-      tags: [Reservations]
-      summary: Cancelar reserva (PATCH)
-      responses:
-        '200':
-          description: Reserva cancelada
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          cancelled: { type: boolean }
-                          reservationCode: { type: string }
-
-  /reservations/{id}/passengers/{passengerId}/seat:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string }
-      - name: passengerId
-        in: path
-        required: true
-        schema: { type: string }
-    patch:
-      tags: [Reservations]
-      summary: Asignar asiento a pasajero
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [seatNumber]
-              properties:
-                seatNumber: { type: string }
-      responses:
-        '200':
-          description: Asiento asignado
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data: { $ref: '#/components/schemas/Passenger' }
-
-  # ==================== PASES DE ABORDAR ====================
-  /boarding-passes:
+  # ── PAYMENTS ─────────────────────────────────────────────────
+  /payments:
     post:
-      tags: [CheckIn]
-      summary: Emitir pase de abordar (check-in)
+      tags: [Payments]
+      summary: Registrar pago
+      description: |
+        Registra el pago de una reserva y genera la factura automáticamente
+        (IVA 15%) de forma asíncrona.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [passengerId, segmentId, boardingCode]
+              required: [reservationId, amount, provider, transactionId]
               properties:
-                passengerId: { type: string }
-                segmentId: { type: string }
-                boardingCode: { type: string }
-                gate: { type: string }
-                boardingGroup: { type: string }
-                checkInAt: { type: string, format: date-time }
-                status: { type: string, enum: [NOT_CHECKED_IN, CHECKED_IN, BOARDED, NO_SHOW] }
+                reservationId: { type: string, format: uuid }
+                amount:        { type: number, minimum: 0, exclusiveMinimum: true, example: 178.00 }
+                provider:      { type: string, example: "VISA" }
+                transactionId: { type: string, example: "TXN-20250615-001" }
+                status:        { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED], default: COMPLETED }
       responses:
         '201':
-          description: Pase creado
+          description: Pago registrado. Factura generada de forma asíncrona.
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/MetaEnvelope'
                   - type: object
                     properties:
-                      data: { $ref: '#/components/schemas/BoardingPass' }
+                      data: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
-  /boarding-passes/by-passenger/{passengerId}:
-    parameters:
-      - name: passengerId
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      tags: [CheckIn]
-      summary: Pases de abordar de un pasajero
-      responses:
-        '200':
-          description: Pases encontrados
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/BoardingPass' }
-
-  # ==================== SERVICIOS ADICIONALES POR PASAJERO ====================
-  /passenger-services:
-    post:
-      tags: [PassengerServices]
-      summary: Agregar servicio adicional a pasajero
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [passengerId, serviceConfigId, quantity, unitPriceAtBooking]
-              properties:
-                passengerId: { type: string }
-                serviceConfigId: { type: string }
-                quantity: { type: integer }
-                unitPriceAtBooking: { type: number }
-      responses:
-        '201':
-          description: Servicio agregado
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data: { $ref: '#/components/schemas/PassengerService' }
-
-  /passenger-services/by-passenger/{passengerId}:
-    parameters:
-      - name: passengerId
-        in: path
-        required: true
-        schema: { type: string }
-    get:
-      tags: [PassengerServices]
-      summary: Servicios de un pasajero
-      responses:
-        '200':
-          description: Lista de servicios
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/PassengerService' }
-
-  /passenger-services/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string }
-    delete:
-      tags: [PassengerServices]
-      summary: Eliminar servicio adicional
-      responses:
-        '200':
-          description: Servicio eliminado
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SuccessResponse' }
-
-  # ==================== PROMOCIONES ====================
+  # ── PROMOTIONS ───────────────────────────────────────────────
   /promotions/validate:
     post:
       tags: [Promotions]
       summary: Validar código de promoción
+      description: |
+        Verifica que el código esté activo y con usos disponibles,
+        y calcula el descuento sobre el monto indicado.
       requestBody:
         required: true
         content:
@@ -411,133 +449,42 @@ paths:
               type: object
               required: [code, amount]
               properties:
-                code: { type: string }
-                amount: { type: number }
+                code:   { type: string, example: "VERANO25" }
+                amount: { type: number, minimum: 0, exclusiveMinimum: true, example: 178.00 }
       responses:
         '200':
-          description: Resultado de validación
+          description: Resultado de la validación
           content:
             application/json:
               schema:
                 allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
+                  - $ref: '#/components/schemas/MetaEnvelope'
                   - type: object
                     properties:
                       data:
                         type: object
                         properties:
-                          valid: { type: boolean }
+                          valid:          { type: boolean }
+                          code:           { type: string }
+                          discountType:   { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
+                          discountValue:  { type: number }
                           discountAmount: { type: number }
-                          finalAmount: { type: number }
+                          finalAmount:    { type: number }
+        '400': { $ref: '#/components/responses/BadRequest' }
 
-  /promotions:
-    get:
-      tags: [Promotions]
-      summary: Listar promociones
-      responses:
-        '200':
-          description: Lista de promociones
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/Promotion' }
-    post:
-      tags: [Promotions]
-      summary: Crear promoción
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [code, discountType, discountValue]
-              properties:
-                code: { type: string }
-                discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
-                discountValue: { type: number }
-                isActive: { type: boolean }
-                maxUsages: { type: integer, nullable: true }
-      responses:
-        '201':
-          description: Promoción creada
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data: { $ref: '#/components/schemas/Promotion' }
-
-  /promotions/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string }
-    patch:
-      tags: [Promotions]
-      summary: Actualizar promoción
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                code: { type: string }
-                discountType: { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
-                discountValue: { type: number }
-                isActive: { type: boolean }
-                maxUsages: { type: integer, nullable: true }
-      responses:
-        '200':
-          description: Promoción actualizada
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data: { $ref: '#/components/schemas/Promotion' }
-    delete:
-      tags: [Promotions]
-      summary: Eliminar promoción
-      responses:
-        '200':
-          description: Promoción eliminada
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SuccessResponse' }
-
-  # ==================== ADMIN (listados extras) ====================
-  /admin/reservations:
-    get:
-      tags: [Admin]
-      summary: Listar todas las reservas (admin)
-      responses:
-        '200':
-          description: Lista de reservas
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessResponse'
-                  - type: object
-                    properties:
-                      data:
-                        type: array
-                        items: { $ref: '#/components/schemas/Reservation' }
-
+# ============================================================
+#   TAGS
+# ============================================================
 tags:
+  - name: Status
+    description: Estado y metadatos del servicio
+  - name: Airports
+    description: Catálogo de aeropuertos
+  - name: Flights
+    description: Búsqueda, detalle y disponibilidad de vuelos
   - name: Reservations
-  - name: CheckIn
-  - name: PassengerServices
+    description: Creación, consulta y cancelación de reservas
+  - name: Payments
+    description: Registro de pagos
   - name: Promotions
-  - name: Admin
+    description: Validación de códigos de descuento
