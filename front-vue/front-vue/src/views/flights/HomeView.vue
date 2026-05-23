@@ -187,7 +187,7 @@ async function loadRecommendedRoutes() {
         </div>
 
         <!-- ═══════ SEARCH CARD ═══════ -->
-        <div class="glass rounded-2xl p-6 sm:p-8 shadow-2xl max-w-5xl animate-fade-up" style="animation-delay: 0.15s">
+        <div class="glass rounded-2xl p-6 sm:p-8 shadow-2xl max-w-5xl animate-fade-up relative z-20" style="animation-delay: 0.15s">
           <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_1fr] gap-3 items-start mb-4">
             <!-- Origen -->
             <div>
