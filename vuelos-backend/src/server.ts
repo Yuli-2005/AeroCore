@@ -37,6 +37,8 @@ import {
   reservationPassengerController,
   auditLogController,
   prisma,
+  bookingDb,
+  paymentsDb,
 } from './shared/container.js';
 
 // ── Routers ──────────────────────────────────────────────────
@@ -275,13 +277,13 @@ app.use(['/api/v1/segments', `${PREFIX}/segments`],      createSegmentRouter(seg
 app.use(['/api/v1/service-catalog', `${PREFIX}/service-catalog`], createServiceCatalogRouter(serviceCatalogController));
 
 // Operaciones autenticadas
-app.use(['/api/v1/billing-profiles', `${PREFIX}/billing-profiles`],       createBillingProfileRouter(billingProfileController, prisma));
-app.use(['/api/v1/boarding-passes', `${PREFIX}/boarding-passes`],        createBoardingPassRouter(boardingPassController, prisma));
-app.use(['/api/v1/payments', `${PREFIX}/payments`],               createPaymentRouter(paymentController, prisma));
-app.use(['/api/v1/invoices', `${PREFIX}/invoices`],               createInvoiceRouter(invoiceController, prisma));
-app.use(['/api/v1/invoice-items', `${PREFIX}/invoice-items`],          createInvoiceItemRouter(invoiceItemController, prisma));
-app.use(['/api/v1/passenger-services', `${PREFIX}/passenger-services`],     createPassengerServiceRouter(passengerServiceController, prisma));
-app.use(['/api/v1/reservation-passengers', `${PREFIX}/reservation-passengers`], createReservationPassengerRouter(reservationPassengerController, prisma));
+app.use(['/api/v1/billing-profiles', `${PREFIX}/billing-profiles`],       createBillingProfileRouter(billingProfileController, paymentsDb));
+app.use(['/api/v1/boarding-passes', `${PREFIX}/boarding-passes`],        createBoardingPassRouter(boardingPassController, bookingDb));
+app.use(['/api/v1/payments', `${PREFIX}/payments`],               createPaymentRouter(paymentController, bookingDb));
+app.use(['/api/v1/invoices', `${PREFIX}/invoices`],               createInvoiceRouter(invoiceController, paymentsDb));
+app.use(['/api/v1/invoice-items', `${PREFIX}/invoice-items`],          createInvoiceItemRouter(invoiceItemController, paymentsDb));
+app.use(['/api/v1/passenger-services', `${PREFIX}/passenger-services`],     createPassengerServiceRouter(passengerServiceController, bookingDb));
+app.use(['/api/v1/reservation-passengers', `${PREFIX}/reservation-passengers`], createReservationPassengerRouter(reservationPassengerController, bookingDb));
 app.use(['/api/v1/audit-logs', `${PREFIX}/audit-logs`],             createAuditLogRouter(auditLogController));
 
 // Admin panel (todas requieren ADMIN)

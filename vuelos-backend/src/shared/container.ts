@@ -223,6 +223,7 @@ export const reservationPassengerController = new ReservationPassengerController
 export const auditLogController             = new AuditLogController(auditLogService);
 
 export { prisma };
+export { catalogDb, identityDb, bookingDb, paymentsDb };
 
 // Query repos exportados para uso en rutas/stats externas
 export {
