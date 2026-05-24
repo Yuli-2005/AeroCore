@@ -1,8 +1,7 @@
 // infrastructure/queries/PaymentQueryRepository.ts
-import type { PrismaClient } from '@prisma/client';
 
 export class PaymentQueryRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: any) {}
 
   async getStats() {
     const [total, byStatus, totalRevenue] = await Promise.all([
@@ -20,14 +19,14 @@ export class PaymentQueryRepository {
   async findByReservation(reservationId: string) {
     return this.db.payment.findMany({
       where: { reservationId },
-      include: { reservation: { select: { id: true, reservationCode: true, totalAmount: true } } },
+      include: { invoice: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async findAll() {
     return this.db.payment.findMany({
-      include: { reservation: { select: { id: true, reservationCode: true, totalAmount: true } } },
+      include: { invoice: true },
       orderBy: { createdAt: 'desc' },
     });
   }
