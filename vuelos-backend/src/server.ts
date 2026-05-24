@@ -279,7 +279,7 @@ app.use(['/api/v1/service-catalog', `${PREFIX}/service-catalog`], createServiceC
 // Operaciones autenticadas
 app.use(['/api/v1/billing-profiles', `${PREFIX}/billing-profiles`],       createBillingProfileRouter(billingProfileController, paymentsDb));
 app.use(['/api/v1/boarding-passes', `${PREFIX}/boarding-passes`],        createBoardingPassRouter(boardingPassController, bookingDb));
-app.use(['/api/v1/payments', `${PREFIX}/payments`],               createPaymentRouter(paymentController, bookingDb));
+app.use(['/api/v1/payments', `${PREFIX}/payments`],               createPaymentRouter(paymentController, bookingDb, paymentsDb));
 app.use(['/api/v1/invoices', `${PREFIX}/invoices`],               createInvoiceRouter(invoiceController, paymentsDb));
 app.use(['/api/v1/invoice-items', `${PREFIX}/invoice-items`],          createInvoiceItemRouter(invoiceItemController, paymentsDb));
 app.use(['/api/v1/passenger-services', `${PREFIX}/passenger-services`],     createPassengerServiceRouter(passengerServiceController, bookingDb));

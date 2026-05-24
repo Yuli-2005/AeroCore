@@ -4,7 +4,7 @@ import { errorHandler } from '../shared/middlewares/error.middleware.js';
 import { registerAuditSubscriber } from '../shared/events/audit-subscriber.js';
 import { paymentsEventPublisher } from '../shared/events/event-publisher.middleware.js';
 import { validateJwtConfig } from '../shared/security/jwt.config.js';
-import prisma from '../shared/database/prisma.client.js';
+import { bookingDb, paymentsDb } from '../shared/database/clients.js';
 
 import { PaymentRepository }         from '../modules/api_payments/repositories/PaymentRepository.js';
 import { InvoiceRepository }         from '../modules/api_invoices/repositories/InvoiceRepository.js';
@@ -79,10 +79,10 @@ app.get(['/health', '/'], (_req, res) => {
   });
 });
 
-app.use('/api/v1/payments',          createPaymentRouter(paymentController, prisma));
-app.use('/api/v1/invoices',          createInvoiceRouter(invoiceController, prisma));
-app.use('/api/v1/invoice-items',     createInvoiceItemRouter(invoiceItemController, prisma));
-app.use('/api/v1/passenger-services', createPassengerServiceRouter(passengerServiceController, prisma));
+app.use('/api/v1/payments',          createPaymentRouter(paymentController, bookingDb, paymentsDb));
+app.use('/api/v1/invoices',          createInvoiceRouter(invoiceController, paymentsDb));
+app.use('/api/v1/invoice-items',     createInvoiceItemRouter(invoiceItemController, paymentsDb));
+app.use('/api/v1/passenger-services', createPassengerServiceRouter(passengerServiceController, bookingDb));
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Ruta ${req.originalUrl} no encontrada` } });
