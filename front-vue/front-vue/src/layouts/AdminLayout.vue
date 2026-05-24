@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 interface NavItem { path: string; label: string; icon: string; end?: boolean; }
@@ -45,7 +45,6 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const authStore = useAuthStore();
-const router = useRouter();
 const route = useRoute();
 
 const user = computed(() => authStore.user);
@@ -61,10 +60,7 @@ function toggleMobileGroup(label: string) {
   }
 }
 
-function logout() {
-  authStore.clearAuth();
-  router.push('/login');
-}
+
 
 function isActiveRoute(path: string, exact: boolean = false): boolean {
   if (exact) {
@@ -168,16 +164,7 @@ function isActiveRoute(path: string, exact: boolean = false): boolean {
             <p class="text-[9px] text-[#b3acdf] font-medium leading-none truncate max-w-[100px]">{{ user?.role }}</p>
           </div>
         </div>
-        
-        <button 
-          @click="logout" 
-          class="flex items-center justify-center gap-1.5 text-xs text-[#c7c0e8] hover:text-red-400 bg-[#2c1a59]/45 hover:bg-red-500/10 border border-[#442c85]/45 hover:border-red-500/20 rounded-full px-4 py-2 transition-all duration-200 font-semibold"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          <span>Salir</span>
-        </button>
+
       </div>
 
       <!-- Mobile controls (Hamburger + profile info placeholder) -->
@@ -261,15 +248,6 @@ function isActiveRoute(path: string, exact: boolean = false): boolean {
             </div>
           </div>
           
-          <button 
-            @click="logout(); mobileOpen = false" 
-            class="w-full flex items-center justify-center gap-2 text-xs text-[#c7c0e8] hover:text-red-400 bg-[#2c1a59]/45 hover:bg-red-500/10 border border-[#442c85]/45 hover:border-red-500/20 rounded-xl py-3 transition-all duration-200 font-semibold"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Cerrar sesión
-          </button>
         </div>
       </div>
     </nav>

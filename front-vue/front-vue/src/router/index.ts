@@ -204,27 +204,29 @@ const router = createRouter({
 });
 
 // Guardas de Navegación reactivas
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
+
+  // Determinar el rol necesario según la ruta
+  const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
+  const neededRole = requiresAdmin ? 'ADMIN' : 'CUSTOMER';
+
+  // Auto-login silencioso si no está autenticado o si requiere rol de administrador y no lo tiene
+  if (!authStore.isAuthenticated || (requiresAdmin && !authStore.isAdmin)) {
+    await authStore.autoLogin(neededRole);
+  }
+
+  // Redireccionar login o register a la página principal ya que no se usarán
+  if (to.name === 'login' || to.name === 'register') {
+    next({ name: 'home' });
+    return;
+  }
+
   const authenticated = authStore.isAuthenticated;
   const isAdmin = authStore.isAdmin;
 
-  if (to.matched.some((record) => record.meta.requiresAuth)) {
-    if (!authenticated) {
-      next({ name: 'login' });
-    } else {
-      next();
-    }
-  } else if (to.matched.some((record) => record.meta.requiresGuest)) {
-    if (authenticated) {
-      next({ name: 'home' });
-    } else {
-      next();
-    }
-  } else if (to.matched.some((record) => record.meta.requiresAdmin)) {
-    if (!authenticated) {
-      next({ name: 'login' });
-    } else if (!isAdmin) {
+  if (requiresAdmin) {
+    if (!authenticated || !isAdmin) {
       next({ name: 'home' });
     } else {
       next();

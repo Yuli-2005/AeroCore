@@ -1,21 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
-const router = useRouter();
 const year = ref(new Date().getFullYear());
 const mobileOpen = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isAdmin = computed(() => authStore.isAdmin);
-const user = computed(() => authStore.user);
-
-function logout() {
-  authStore.clearAuth();
-  router.push('/login');
-}
 </script>
 
 <template>
@@ -58,27 +50,8 @@ function logout() {
             </router-link>
           </nav>
 
-          <!-- Auth + Mobile toggle -->
+          <!-- Mobile toggle -->
           <div class="flex items-center gap-3">
-            <template v-if="isAuthenticated">
-              <div class="hidden sm:flex items-center gap-2.5 text-sm text-gray-600">
-                <div class="w-8 h-8 rounded-full gradient-brand text-white flex items-center justify-center font-bold text-xs shadow-md">
-                  {{ user?.firstName?.charAt(0)?.toUpperCase() }}
-                </div>
-                <span class="font-medium">{{ user?.firstName }}</span>
-              </div>
-              <button @click="logout" class="flex items-center gap-1.5 text-sm text-gray-400 hover:text-red-500 px-3 py-2 rounded-xl hover:bg-red-50 transition-all duration-200">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span class="hidden sm:inline">Salir</span>
-              </button>
-            </template>
-            <template v-else>
-              <router-link to="/login" class="text-sm font-medium text-gray-600 hover:text-blue-600 px-4 py-2 rounded-xl hover:bg-blue-50 transition-all duration-200">Iniciar sesión</router-link>
-              <router-link to="/register" class="text-sm font-semibold text-white gradient-brand px-5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-95">Registrarse</router-link>
-            </template>
-
             <!-- Mobile menu button -->
             <button @click="mobileOpen = !mobileOpen" class="md:hidden flex items-center justify-center w-10 h-10 rounded-xl hover:bg-gray-100 transition-colors">
               <svg v-if="!mobileOpen" class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,8 +108,7 @@ function logout() {
             <h4 class="font-semibold text-sm uppercase tracking-wider text-slate-300 mb-4">Navegación</h4>
             <ul class="space-y-2.5 text-sm text-slate-400">
               <li><router-link to="/" class="hover:text-white transition-colors">Buscar vuelos</router-link></li>
-              <li><router-link to="/login" class="hover:text-white transition-colors">Iniciar sesión</router-link></li>
-              <li><router-link to="/register" class="hover:text-white transition-colors">Registrarse</router-link></li>
+              <li><router-link to="/my-trips" class="hover:text-white transition-colors">Mis viajes</router-link></li>
             </ul>
           </div>
           <!-- Info -->
