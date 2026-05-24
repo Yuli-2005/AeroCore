@@ -9,6 +9,11 @@ dist/
 
 # Prisma
 prisma/migrations/dev.db
+prisma-catalog/
+prisma-identity/
+prisma-booking/
+prisma-payments/
+prisma-client/
 
 # Logs
 *.log

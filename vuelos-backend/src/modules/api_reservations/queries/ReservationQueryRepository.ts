@@ -1,8 +1,6 @@
 // infrastructure/queries/ReservationQueryRepository.ts
-import type { PrismaClient } from '@prisma/client';
-
 export class ReservationQueryRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(private readonly db: any) {}
 
   async getDashboardStats() {
     const [totalReservations, confirmedReservations, cancelledReservations, totalRevenue] =
@@ -28,11 +26,6 @@ export class ReservationQueryRepository {
     return this.db.reservation.findMany({
       where: { userId },
       include: {
-        flight: {
-          include: {
-            segments: { include: { airline: true }, orderBy: { departureDateTime: 'asc' } },
-          },
-        },
         passengers: true,
         promotion: true,
       },

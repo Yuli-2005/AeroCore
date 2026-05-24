@@ -1,6 +1,7 @@
 // infrastructure/container.ts
 // Contenedor de Inyección de Dependencias — ensambla todas las capas.
 import prisma from './database/prisma.client.js';
+import { catalogDb, identityDb, bookingDb, paymentsDb } from './database/clients.js';
 
 // ── Repositories ─────────────────────────────────────────────
 import { CountryRepository }              from '../modules/api_countries/repositories/CountryRepository.js';
@@ -106,53 +107,59 @@ import { AuditLogController }               from '../modules/api_audit_logs/cont
 //   INSTANCIACIÓN (manual DI)
 // ============================================================
 
-// Repositories
-const countryRepo              = new CountryRepository(prisma);
-const cityRepo                 = new CityRepository(prisma);
-const airportRepo              = new AirportRepository(prisma);
-const airlineRepo              = new AirlineRepository(prisma);
-const aircraftRepo             = new AircraftRepository(prisma);
-const flightRepo               = new FlightRepository(prisma);
-const flightClassRepo          = new FlightClassRepository(prisma);
-const reservationRepo          = new ReservationRepository(prisma);
-const userRepo                 = new UserRepository(prisma);
-const promotionRepo            = new PromotionRepository(prisma);
-const auditLogRepo             = new AuditLogRepository(prisma);
-const airlineAirportRepo       = new AirlineAirportRepository(prisma);
-const airlineServiceConfigRepo = new AirlineServiceConfigRepository(prisma);
-const billingProfileRepo       = new BillingProfileRepository(prisma);
-const boardingPassRepo         = new BoardingPassRepository(prisma);
-const invoiceRepo              = new InvoiceRepository(prisma);
-const invoiceItemRepo          = new InvoiceItemRepository(prisma);
-const passengerServiceRepo     = new PassengerServiceRepository(prisma);
-const paymentRepo              = new PaymentRepository(prisma);
-const reservationPassengerRepo = new ReservationPassengerRepository(prisma);
-const segmentRepo              = new SegmentRepository(prisma);
-const serviceCatalogRepo       = new ServiceCatalogRepository(prisma);
+// Repositories — cada uno usa su base de datos Supabase correspondiente
+const countryRepo              = new CountryRepository(catalogDb);
+const cityRepo                 = new CityRepository(catalogDb);
+const airportRepo              = new AirportRepository(catalogDb);
+const airlineRepo              = new AirlineRepository(catalogDb);
+const aircraftRepo             = new AircraftRepository(catalogDb);
+const flightRepo               = new FlightRepository(catalogDb);
+const flightClassRepo          = new FlightClassRepository(catalogDb);
+const segmentRepo              = new SegmentRepository(catalogDb);
+const serviceCatalogRepo       = new ServiceCatalogRepository(catalogDb);
+const airlineAirportRepo       = new AirlineAirportRepository(catalogDb);
+const airlineServiceConfigRepo = new AirlineServiceConfigRepository(catalogDb);
 
-// Query Repositories
-const flightQuery               = new FlightQueryRepository(prisma);
-const reservationQuery          = new ReservationQueryRepository(prisma);
-const userQuery                 = new UserQueryRepository(prisma);
-const airportQuery              = new AirportQueryRepository(prisma);
-const countryQuery              = new CountryQueryRepository(prisma);
-const cityQuery                 = new CityQueryRepository(prisma);
-const airlineQuery              = new AirlineQueryRepository(prisma);
-const aircraftQuery             = new AircraftQueryRepository(prisma);
-const airlineAirportQuery       = new AirlineAirportQueryRepository(prisma);
-const airlineServiceConfigQuery = new AirlineServiceConfigQueryRepository(prisma);
-const flightClassQuery          = new FlightClassQueryRepository(prisma);
-const segmentQuery              = new SegmentQueryRepository(prisma);
-const serviceCatalogQuery       = new ServiceCatalogQueryRepository(prisma);
-const promotionQuery            = new PromotionQueryRepository(prisma);
-const billingProfileQuery       = new BillingProfileQueryRepository(prisma);
-const paymentQuery              = new PaymentQueryRepository(prisma);
-const invoiceQuery              = new InvoiceQueryRepository(prisma);
-const invoiceItemQuery          = new InvoiceItemQueryRepository(prisma);
-const boardingPassQuery         = new BoardingPassQueryRepository(prisma);
-const passengerServiceQuery     = new PassengerServiceQueryRepository(prisma);
-const reservationPassengerQuery = new ReservationPassengerQueryRepository(prisma);
-const auditLogQuery             = new AuditLogQueryRepository(prisma);
+const userRepo                 = new UserRepository(identityDb);
+const auditLogRepo             = new AuditLogRepository(identityDb);
+
+const reservationRepo          = new ReservationRepository(bookingDb);
+const promotionRepo            = new PromotionRepository(bookingDb);
+const boardingPassRepo         = new BoardingPassRepository(bookingDb);
+const passengerServiceRepo     = new PassengerServiceRepository(bookingDb);
+const reservationPassengerRepo = new ReservationPassengerRepository(bookingDb);
+
+const billingProfileRepo       = new BillingProfileRepository(paymentsDb);
+const invoiceRepo              = new InvoiceRepository(paymentsDb);
+const invoiceItemRepo          = new InvoiceItemRepository(paymentsDb);
+const paymentRepo              = new PaymentRepository(paymentsDb);
+
+// Query Repositories — misma separación por base de datos
+const flightQuery               = new FlightQueryRepository(catalogDb);
+const airportQuery              = new AirportQueryRepository(catalogDb);
+const countryQuery              = new CountryQueryRepository(catalogDb);
+const cityQuery                 = new CityQueryRepository(catalogDb);
+const airlineQuery              = new AirlineQueryRepository(catalogDb);
+const aircraftQuery             = new AircraftQueryRepository(catalogDb);
+const airlineAirportQuery       = new AirlineAirportQueryRepository(catalogDb);
+const airlineServiceConfigQuery = new AirlineServiceConfigQueryRepository(catalogDb);
+const flightClassQuery          = new FlightClassQueryRepository(catalogDb);
+const segmentQuery              = new SegmentQueryRepository(catalogDb);
+const serviceCatalogQuery       = new ServiceCatalogQueryRepository(catalogDb);
+
+const userQuery                 = new UserQueryRepository(identityDb);
+const auditLogQuery             = new AuditLogQueryRepository(identityDb);
+
+const reservationQuery          = new ReservationQueryRepository(bookingDb);
+const promotionQuery            = new PromotionQueryRepository(bookingDb);
+const boardingPassQuery         = new BoardingPassQueryRepository(bookingDb);
+const passengerServiceQuery     = new PassengerServiceQueryRepository(bookingDb);
+const reservationPassengerQuery = new ReservationPassengerQueryRepository(bookingDb);
+
+const billingProfileQuery       = new BillingProfileQueryRepository(paymentsDb);
+const paymentQuery              = new PaymentQueryRepository(paymentsDb);
+const invoiceQuery              = new InvoiceQueryRepository(paymentsDb);
+const invoiceItemQuery          = new InvoiceItemQueryRepository(paymentsDb);
 
 // Services
 const authService                 = new AuthService(userRepo);
@@ -172,7 +179,7 @@ const segmentService              = new SegmentService(segmentRepo);
 const serviceCatalogService       = new ServiceCatalogService(serviceCatalogRepo);
 const billingProfileService       = new BillingProfileService(billingProfileRepo);
 const boardingPassService         = new BoardingPassService(boardingPassRepo);
-const paymentService              = new PaymentService(paymentRepo, billingProfileRepo, invoiceRepo, prisma);
+const paymentService              = new PaymentService(paymentRepo, billingProfileRepo, invoiceRepo, identityDb);
 const invoiceService              = new InvoiceService(invoiceRepo);
 const invoiceItemService          = new InvoiceItemService(invoiceItemRepo);
 const passengerServiceService     = new PassengerServiceService(passengerServiceRepo);
