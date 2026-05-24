@@ -1,28 +1,28 @@
-databases:
-  - name: aerocore-db
-    databaseName: aerocore
-    user: aerocore_user
-    plan: free
-
 services:
-  # BACKEND — Node.js API
+  # BACKEND — Node.js API (base de datos en Supabase)
   - type: web
     name: aerocore-api
     runtime: node
     region: oregon
     plan: free
     rootDir: vuelos-backend
-    buildCommand: npm install && npm run build && npx prisma db push --accept-data-loss && npm run db:seed
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: aerocore-db
-          property: connectionString
+        sync: false
+      - key: IDENTITY_DATABASE_URL
+        sync: false
+      - key: CATALOG_DATABASE_URL
+        sync: false
+      - key: BOOKING_DATABASE_URL
+        sync: false
+      - key: PAYMENTS_DATABASE_URL
+        sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_ISSUER
         value: aerocore-api
       - key: JWT_AUDIENCE
