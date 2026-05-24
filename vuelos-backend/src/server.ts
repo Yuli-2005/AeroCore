@@ -254,7 +254,7 @@ const PREFIX = '/api/v1/yulieth-galarza';
 
 // Auth & Users
 app.use(['/api/v1/auth', `${PREFIX}/auth`],         createAuthRouter(authController));
-app.use(['/api/v1/reservations', `${PREFIX}/reservations`], createReservationRouter(reservationController, prisma));
+app.use(['/api/v1/reservations', `${PREFIX}/reservations`], createReservationRouter(reservationController, bookingDb));
 app.use(['/api/v1/promotions', `${PREFIX}/promotions`],   createPromotionRouter(promotionController));
 
 // Catálogos geográficos (GET público, mutaciones admin)
@@ -292,7 +292,7 @@ app.use(['/api/v1/admin', `${PREFIX}/admin`], createAdminRouter(adminController,
 // ── Alias sin versión (backward compatibility) ───────────────
 app.use('/api/auth',                  createAuthRouter(authController));
 app.use('/api/flights',               createFlightRouter(flightController));
-app.use('/api/reservations',          createReservationRouter(reservationController, prisma));
+app.use('/api/reservations',          createReservationRouter(reservationController, bookingDb));
 app.use('/api/promotions',            createPromotionRouter(promotionController));
 app.use('/api/admin',                 createAdminRouter(adminController, prisma));
 
