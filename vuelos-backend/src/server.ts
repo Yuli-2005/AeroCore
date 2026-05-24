@@ -294,107 +294,48 @@ app.use('/api/reservations',          createReservationRouter(reservationControl
 app.use('/api/promotions',            createPromotionRouter(promotionController));
 app.use('/api/admin',                 createAdminRouter(adminController, prisma));
 
-// ── Cargar contratos OpenAPI (YAML) de los microservicios ────
-const loadYamlSpec = (filename: string) => {
-  try {
-    const filePath = path.resolve(filename);
-    return yaml.load(fs.readFileSync(filePath, 'utf8'));
-  } catch (error: any) {
-    console.error(`❌ Error al cargar contrato ${filename}:`, error.message);
-    return null;
-  }
-};
-
-const identitySpec = loadYamlSpec('openapi-identity.yaml');
-const catalogSpec = loadYamlSpec('openapi-catalog.yaml');
-const bookingSpec = loadYamlSpec('openapi-booking.yaml');
-const paymentsSpec = loadYamlSpec('openapi-payments.yaml');
+// ── Cargar contrato OpenAPI unificado ────────────────────────
+let unifiedSpec: object | null = null;
+try {
+  const filePath = path.resolve('openapi.yaml');
+  unifiedSpec = yaml.load(fs.readFileSync(filePath, 'utf8')) as object;
+} catch (error: any) {
+  console.error('❌ Error al cargar openapi.yaml:', error.message);
+}
 
 // ── Redirección para asegurar barra al final en Swagger UI ────
 app.use((req, res, next) => {
   const urlPath = req.path;
-  if (
-    urlPath.match(/^\/api\/v1\/(yulieth-galarza\/)?docs$/) ||
-    urlPath.match(/^\/api\/v1\/(yulieth-galarza\/)?docs\/(identity|catalog|booking|payments)$/)
-  ) {
+  if (urlPath.match(/^\/api\/v1\/(yulieth-galarza\/)?docs$/)) {
     return res.redirect(301, req.originalUrl.replace(urlPath, urlPath + '/'));
   }
   next();
 });
 
-// ── Rutas Swagger UI para microservicios individuales ─────────
-if (identitySpec) {
-  app.use(
-    ['/api/v1/docs/identity', `${PREFIX}/docs/identity`],
-    swaggerUi.serveFiles(identitySpec),
-    swaggerUi.setup(identitySpec, {
-      customSiteTitle: 'Identity API — Docs',
-      swaggerOptions: { persistAuthorization: true },
-    })
-  );
-  app.get(['/api/v1/docs/identity.json', `${PREFIX}/docs/identity.json`], (_req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(identitySpec);
-  });
-}
+// ── Documentación Swagger UI (única, unificada) ───────────────
+const activeSpec = unifiedSpec ?? swaggerSpec;
 
-if (catalogSpec) {
-  app.use(
-    ['/api/v1/docs/catalog', `${PREFIX}/docs/catalog`],
-    swaggerUi.serveFiles(catalogSpec),
-    swaggerUi.setup(catalogSpec, {
-      customSiteTitle: 'Catalog API — Docs',
-      swaggerOptions: { persistAuthorization: true },
-    })
-  );
-  app.get(['/api/v1/docs/catalog.json', `${PREFIX}/docs/catalog.json`], (_req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(catalogSpec);
-  });
-}
-
-if (bookingSpec) {
-  app.use(
-    ['/api/v1/docs/booking', `${PREFIX}/docs/booking`],
-    swaggerUi.serveFiles(bookingSpec),
-    swaggerUi.setup(bookingSpec, {
-      customSiteTitle: 'Booking API — Docs',
-      swaggerOptions: { persistAuthorization: true },
-    })
-  );
-  app.get(['/api/v1/docs/booking.json', `${PREFIX}/docs/booking.json`], (_req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(bookingSpec);
-  });
-}
-
-if (paymentsSpec) {
-  app.use(
-    ['/api/v1/docs/payments', `${PREFIX}/docs/payments`],
-    swaggerUi.serveFiles(paymentsSpec),
-    swaggerUi.setup(paymentsSpec, {
-      customSiteTitle: 'Payments API — Docs',
-      swaggerOptions: { persistAuthorization: true },
-    })
-  );
-  app.get(['/api/v1/docs/payments.json', `${PREFIX}/docs/payments.json`], (_req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(paymentsSpec);
-  });
-}
-
-// ── Documentación Swagger UI ─────────────────────────────────
-app.use(['/api/v1/docs', `${PREFIX}/docs`], swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: 'Vuelos API — Docs',
+app.use(['/api/v1/docs', `${PREFIX}/docs`], swaggerUi.serve, swaggerUi.setup(activeSpec, {
+  customSiteTitle: 'Yulieth Galarza — Booking API Docs',
   swaggerOptions: { persistAuthorization: true },
 }));
+
+// Endpoint JSON del spec (para el frontend y herramientas externas)
 app.get(['/api/v1/docs.json', `${PREFIX}/docs.json`], (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
+  res.send(activeSpec);
 });
+
+// Endpoint YAML del spec
+app.get(['/api/v1/docs.yaml', `${PREFIX}/docs.yaml`], (_req, res) => {
+  res.setHeader('Content-Type', 'application/yaml');
+  res.sendFile(path.resolve('openapi.yaml'));
+});
+
+// Alias /spec para compatibilidad
 app.get(['/api/v1/spec', `${PREFIX}/spec`], (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
+  res.send(activeSpec);
 });
 
 // ── 404 ──────────────────────────────────────────────────────
@@ -414,7 +355,11 @@ async function startServer() {
     console.log('✅ Conectado a PostgreSQL');
 
     const GRPC_PORT = Number(process.env.GRPC_PORT) || 50051;
-    grpcServer = await startGrpcServer(GRPC_PORT);
+    try {
+      grpcServer = await startGrpcServer(GRPC_PORT);
+    } catch (grpcErr: any) {
+      console.warn(`⚠️  gRPC no disponible (puerto ${GRPC_PORT}): ${grpcErr.message} — el servidor REST sigue activo.`);
+    }
 
     app.listen(PORT, () => {
       console.log(`\n🚀 Vuelos API — http://localhost:${PORT}`);

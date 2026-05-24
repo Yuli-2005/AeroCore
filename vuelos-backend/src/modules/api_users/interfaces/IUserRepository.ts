@@ -6,4 +6,5 @@ export interface IUserRepository extends IBaseRepository<User> {
   findByEmail(email: string): Promise<User | null>;
   findAllWithRelations(): Promise<any[]>;
   findFirstCity(): Promise<{ id: string } | null>;
+  findCityById(id: string): Promise<{ id: string } | null>;
 }

@@ -1,0 +1,776 @@
+openapi: 3.0.3
+
+info:
+  title: "Yulieth Galarza — Booking API (Integración)"
+  version: "1.0.0"
+  description: |
+    API pública para que los módulos de otros equipos consulten vuelos y realicen reservas
+    desde el módulo de **Yulieth Galarza** — Integración de Sistemas 2026.
+
+    ---
+
+    ## Autenticación
+
+    Los endpoints de reservas y pagos requieren un token JWT:
+    1. Ejecuta `POST /auth/login` → copia el campo `token`
+    2. Inclúyelo en todas las peticiones protegidas: `Authorization: Bearer <token>`
+
+    **Credenciales de prueba:**
+
+    | Rol | Email | Contraseña |
+    |-----|-------|-----------|
+    | CUSTOMER | `demo@aerocore.com` | `Test@12345` |
+    | ADMIN | `yvgalarza@vuelosapp.com` | `Yuli@2005` |
+
+    ---
+
+    ## IDs de prueba (base de datos Supabase real)
+
+    | Recurso | ID |
+    |---------|----|
+    | Vuelo UIO → BOG (Avianca) | `cmpizkajw0016ru3piuynlykq` |
+    | FlightClass ECONOMY $135 | `cmpizkajw0019ru3prrxm9wmc` |
+    | FlightClass BUSINESS $380 | `cmpizkajw001aru3ppr4jjfko` |
+    | Código 10% descuento | `DESCUENTO10` |
+    | Código $20 descuento fijo | `VIAJERO20` |
+
+    **Búsqueda de prueba:** `origin=UIO` · `destination=BOG` · `date=2026-05-23` · `passengers=1`
+
+servers:
+  - url: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
+    description: Producción (Render)
+  - url: http://localhost:3000/api/v1/yulieth-galarza
+    description: Desarrollo local
+
+security: []
+
+# ============================================================
+#   SCHEMAS
+# ============================================================
+components:
+  schemas:
+
+    MetaEnvelope:
+      type: object
+      properties:
+        success:    { type: boolean, example: true }
+        owner:      { type: string,  example: "Yulieth Galarza" }
+        api:        { type: string,  example: "Yulieth Galarza Booking API" }
+        version:    { type: string,  example: "1.0.0" }
+        module:     { type: string,  example: "booking" }
+        visibility: { type: string,  example: "public" }
+        auth:       { type: string,  example: "none" }
+        data:       {}
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code:    { type: string,  example: "NOT_FOUND" }
+            message: { type: string,  example: "Descripción del error" }
+
+    Airport:
+      type: object
+      properties:
+        id:       { type: string }
+        iataCode: { type: string, example: "UIO" }
+        name:     { type: string, example: "Aeropuerto Mariscal Sucre" }
+        timezone: { type: string, example: "America/Guayaquil" }
+        city:
+          type: object
+          properties:
+            id:   { type: string }
+            name: { type: string, example: "Quito" }
+            country:
+              type: object
+              properties:
+                id:      { type: string }
+                name:    { type: string, example: "Ecuador" }
+                isoCode: { type: string, example: "EC" }
+
+    FlightClass:
+      type: object
+      properties:
+        id:             { type: string }
+        flightId:       { type: string }
+        cabinClass:     { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+        availableSeats: { type: integer, minimum: 0 }
+        basePrice:      { type: number,  example: 135.00 }
+
+    Flight:
+      type: object
+      properties:
+        id:                     { type: string }
+        flightNumber:           { type: string, nullable: true }
+        originAirportIata:      { type: string, example: "UIO" }
+        destinationAirportIata: { type: string, example: "BOG" }
+        departureDate:          { type: string, format: date }
+        departureDateTime:      { type: string, format: date-time, nullable: true }
+        arrivalDateTime:        { type: string, format: date-time, nullable: true }
+        duration:               { type: integer, description: "Duración total en minutos", nullable: true }
+        stops:                  { type: integer, nullable: true }
+        lowestPrice:            { type: number,  nullable: true }
+        status:                 { type: string, enum: [SCHEDULED, DELAYED, CANCELLED, COMPLETED] }
+        airline:
+          nullable: true
+          type: object
+          properties:
+            id:       { type: string }
+            iataCode: { type: string, example: "AV" }
+            name:     { type: string, example: "Avianca" }
+            logoUrl:  { type: string, nullable: true }
+        flightClasses:
+          type: array
+          items: { $ref: '#/components/schemas/FlightClass' }
+
+    Passenger:
+      type: object
+      properties:
+        id:             { type: string }
+        firstName:      { type: string, example: "Juan" }
+        lastName:       { type: string, example: "Pérez" }
+        documentNumber: { type: string, example: "1234567890" }
+        seatNumber:     { type: string, nullable: true, example: "14C" }
+        flightClassId:  { type: string, format: uuid, example: "cmpizkajw0019ru3prrxm9wmc" }
+
+    Reservation:
+      type: object
+      properties:
+        id:              { type: string }
+        reservationCode: { type: string, example: "RES-ABCD1234" }
+        status:          { type: string, enum: [PENDING, CONFIRMED, CANCELLED] }
+        totalAmount:     { type: number }
+        createdAt:       { type: string, format: date-time }
+        flightId:        { type: string }
+        promotionId:     { type: string, nullable: true }
+        passengers:
+          type: array
+          items: { $ref: '#/components/schemas/Passenger' }
+
+    Payment:
+      type: object
+      properties:
+        id:            { type: string }
+        reservationId: { type: string }
+        amount:        { type: number }
+        provider:      { type: string, enum: [VISA, MASTERCARD, AMEX, PAYPAL, TRANSFER], example: "VISA" }
+        transactionId: { type: string }
+        status:        { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED] }
+        createdAt:     { type: string, format: date-time }
+
+  responses:
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    BadRequest:
+      description: Datos de entrada inválidos
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Token ausente o inválido
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+# ============================================================
+#   PATHS
+# ============================================================
+paths:
+
+  # ── ESTADO DE LA API ─────────────────────────────────────────
+  /:
+    get:
+      tags: [Status]
+      summary: Estado de la API
+      description: Retorna información general del servicio, módulo y visibilidad.
+      responses:
+        '200':
+          description: API operativa
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:    { type: string, example: "online" }
+                          endpoints: { type: integer, example: 67 }
+                          tables:    { type: integer, example: 22 }
+
+  # ── AUTH ─────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión — retorna JWT
+      description: 'El token obtenido debe enviarse como `Authorization: Bearer <token>` en endpoints protegidos.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email }
+                password: { type: string }
+            examples:
+              customer:
+                summary: Login CUSTOMER (demo)
+                value:
+                  email: demo@aerocore.com
+                  password: "Test@12345"
+              admin:
+                summary: Login ADMIN
+                value:
+                  email: yvgalarza@vuelosapp.com
+                  password: "Yuli@2005"
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            type: object
+                            properties:
+                              id:        { type: string }
+                              email:     { type: string }
+                              firstName: { type: string }
+                              role:      { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
+                          token: { type: string, example: "eyJhbGci..." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar nuevo usuario
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, firstName, firstLastName]
+              properties:
+                email:         { type: string, format: email, example: "nuevo@ejemplo.com" }
+                password:      { type: string, minLength: 6, example: "Test@12345" }
+                firstName:     { type: string, example: "Carlos" }
+                firstLastName: { type: string, example: "Mendoza" }
+                mainAddress:   { type: string, example: "Av. República 123, Quito" }
+                cityId:        { type: string, example: "cmpc4ect20003swnzlnvgfcr8" }
+            example:
+              email: nuevo@ejemplo.com
+              password: "Test@12345"
+              firstName: Carlos
+              firstLastName: Mendoza
+              mainAddress: "Av. República 123, Quito"
+              cityId: cmpc4ect20003swnzlnvgfcr8
+      responses:
+        '201':
+          description: Usuario registrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            type: object
+                            properties:
+                              id:        { type: string }
+                              email:     { type: string }
+                              firstName: { type: string }
+                              role:      { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
+                          token: { type: string, example: "eyJhbGci..." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  # ── AIRPORTS ─────────────────────────────────────────────────
+  /airports:
+    get:
+      tags: [Airports]
+      summary: Listar aeropuertos
+      description: Retorna la lista completa de aeropuertos con ciudad y país.
+      responses:
+        '200':
+          description: Lista de aeropuertos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Airport' }
+
+  /airports/search:
+    get:
+      tags: [Airports]
+      summary: Buscar aeropuertos por nombre o código IATA
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, example: "UIO" }
+          description: Término de búsqueda (nombre o código IATA)
+      responses:
+        '200':
+          description: Aeropuertos encontrados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Airport' }
+
+  # ── FLIGHTS ──────────────────────────────────────────────────
+  /flights/search:
+    get:
+      tags: [Flights]
+      summary: Buscar vuelos disponibles
+      description: Filtra vuelos por origen, destino, fecha, número de pasajeros y clase de cabina.
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          schema: { type: string, example: "UIO" }
+          description: Código IATA del aeropuerto de origen
+        - name: destination
+          in: query
+          required: true
+          schema: { type: string, example: "BOG" }
+          description: Código IATA del aeropuerto de destino
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date, example: "2026-05-23" }
+          description: Fecha de salida (YYYY-MM-DD)
+        - name: passengers
+          in: query
+          schema: { type: integer, minimum: 1, default: 1, example: 1 }
+          description: Número de pasajeros
+        - name: class
+          in: query
+          schema: { type: string, enum: [ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST] }
+          description: Clase de cabina deseada
+      responses:
+        '200':
+          description: Vuelos encontrados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Flight' }
+              example:
+                success: true
+                owner: Yulieth Galarza
+                module: booking
+                data:
+                  - id: cmpizkajw0016ru3piuynlykq
+                    originAirportIata: UIO
+                    destinationAirportIata: BOG
+                    departureDate: "2026-05-23"
+                    status: SCHEDULED
+                    airline:
+                      iataCode: AV
+                      name: Avianca
+                    flightClasses:
+                      - id: cmpizkajw0019ru3prrxm9wmc
+                        cabinClass: ECONOMY
+                        availableSeats: 120
+                        basePrice: 135.00
+                      - id: cmpizkajw001aru3ppr4jjfko
+                        cabinClass: BUSINESS
+                        availableSeats: 12
+                        basePrice: 380.00
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /flights/{flightId}:
+    parameters:
+      - name: flightId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del vuelo
+    get:
+      tags: [Flights]
+      summary: Detalle de un vuelo
+      responses:
+        '200':
+          description: Vuelo encontrado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Flight' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /flights/{flightId}/availability:
+    parameters:
+      - name: flightId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del vuelo
+    get:
+      tags: [Flights]
+      summary: Disponibilidad de asientos por clase
+      description: Retorna las clases de vuelo con asientos disponibles y precio base.
+      responses:
+        '200':
+          description: Clases disponibles con asientos y precios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/FlightClass' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── RESERVATIONS ─────────────────────────────────────────────
+  /reservations:
+    post:
+      tags: [Reservations]
+      summary: Crear reserva
+      description: |
+        Crea una reserva de forma atómica:
+        1. Verifica disponibilidad de asientos
+        2. Aplica descuento si se envía `promotionCode`
+        3. Crea la reserva y sus pasajeros
+        4. Decrementa `availableSeats`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flightClassId, passengers]
+              properties:
+                flightClassId:
+                  type: string
+                  example: "cmpizkajw0019ru3prrxm9wmc"
+                passengers:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [firstName, lastName, documentNumber]
+                    properties:
+                      firstName:      { type: string, example: "Juan" }
+                      lastName:       { type: string, example: "Pérez" }
+                      documentNumber: { type: string, example: "1234567890" }
+                      seatNumber:     { type: string, nullable: true, example: "14C" }
+                promotionCode: { type: string, example: "DESCUENTO10" }
+            examples:
+              sin_descuento:
+                summary: Reserva básica — ECONOMY UIO→BOG ($135)
+                value:
+                  flightClassId: cmpizkajw0019ru3prrxm9wmc
+                  passengers:
+                    - firstName: Juan
+                      lastName: Pérez
+                      documentNumber: "1234567890"
+              con_descuento:
+                summary: Con código DESCUENTO10 (10% off → $121.50)
+                value:
+                  flightClassId: cmpizkajw0019ru3prrxm9wmc
+                  passengers:
+                    - firstName: Ana
+                      lastName: Torres
+                      documentNumber: "0987654321"
+                  promotionCode: DESCUENTO10
+              business:
+                summary: Business class UIO→BOG ($380)
+                value:
+                  flightClassId: cmpizkajw001aru3ppr4jjfko
+                  passengers:
+                    - firstName: Luis
+                      lastName: Vargas
+                      documentNumber: "1122334455"
+      responses:
+        '201':
+          description: Reserva creada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Reservation' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: Sin disponibilidad de asientos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /reservations/my:
+    get:
+      tags: [Reservations]
+      summary: Mis reservas
+      description: Retorna todas las reservas del usuario autenticado.
+      responses:
+        '200':
+          description: Reservas del usuario
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /reservations/{reservationId}:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID de la reserva
+    get:
+      tags: [Reservations]
+      summary: Obtener detalle de una reserva
+      responses:
+        '200':
+          description: Reserva encontrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reservations/{reservationId}/cancel:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID de la reserva a cancelar
+    patch:
+      tags: [Reservations]
+      summary: Cancelar reserva
+      description: |
+        Cancela la reserva en una transacción atómica:
+        - Estado → `CANCELLED`
+        - Restaura `availableSeats` en la clase de vuelo
+        - Decrementa `currentUsages` de la promoción si aplica
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Reserva cancelada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          cancelled:       { type: boolean, example: true }
+                          reservationCode: { type: string, example: "RES-ABCD1234" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── PAYMENTS ─────────────────────────────────────────────────
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Registrar pago
+      description: |
+        Registra el pago de una reserva y genera la factura automáticamente (IVA 15%).
+
+        **Proveedores aceptados:** `VISA` · `MASTERCARD` · `AMEX` · `PAYPAL` · `TRANSFER`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservationId, amount, provider, transactionId]
+              properties:
+                reservationId: { type: string, example: "<id de la reserva>" }
+                amount:        { type: number, minimum: 0, example: 135.00 }
+                provider:      { type: string, enum: [VISA, MASTERCARD, AMEX, PAYPAL, TRANSFER], example: "VISA" }
+                transactionId: { type: string, minLength: 6, maxLength: 120, example: "TXN-20260523-001" }
+                status:        { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED], default: COMPLETED }
+            example:
+              reservationId: "<id de tu reserva>"
+              amount: 135.00
+              provider: VISA
+              transactionId: "TXN-20260523-001"
+      responses:
+        '201':
+          description: Pago registrado. Factura generada de forma asíncrona (IVA 15%).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Payment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: La reserva ya tiene un pago registrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /payments/by-reservation/{reservationId}:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Payments]
+      summary: Pagos de una reserva
+      responses:
+        '200':
+          description: Pagos de la reserva
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── PROMOTIONS ───────────────────────────────────────────────
+  /promotions/validate:
+    post:
+      tags: [Promotions]
+      summary: Validar código de promoción
+      security: []
+      description: |
+        Verifica que el código esté activo y con usos disponibles,
+        y calcula el descuento sobre el monto indicado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, amount]
+              properties:
+                code:   { type: string, example: "DESCUENTO10" }
+                amount: { type: number, example: 135.00 }
+            examples:
+              porcentaje:
+                summary: DESCUENTO10 — 10% sobre $135 → descuento $13.50
+                value:
+                  code: DESCUENTO10
+                  amount: 135.00
+              monto_fijo:
+                summary: VIAJERO20 — $20 fijo sobre $135 → descuento $20
+                value:
+                  code: VIAJERO20
+                  amount: 135.00
+      responses:
+        '200':
+          description: Resultado de la validación
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          valid:          { type: boolean }
+                          code:           { type: string }
+                          discountType:   { type: string, enum: [PERCENTAGE, FIXED_AMOUNT] }
+                          discountValue:  { type: number }
+                          discountAmount: { type: number }
+                          finalAmount:    { type: number }
+              example:
+                success: true
+                data:
+                  valid: true
+                  code: DESCUENTO10
+                  discountType: PERCENTAGE
+                  discountValue: 10
+                  discountAmount: 13.50
+                  finalAmount: 121.50
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+# ============================================================
+#   TAGS
+# ============================================================
+tags:
+  - name: Status
+    description: Estado y metadatos del servicio
+  - name: Auth
+    description: Autenticación — obtener JWT
+  - name: Airports
+    description: Catálogo de aeropuertos
+  - name: Flights
+    description: Búsqueda, detalle y disponibilidad de vuelos
+  - name: Reservations
+    description: Creación, consulta y cancelación de reservas
+  - name: Payments
+    description: Registro de pagos
+  - name: Promotions
+    description: Validación de códigos de descuento

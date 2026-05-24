@@ -49,7 +49,7 @@ const paymentForm = ref({
 });
 const submitted2 = ref(false);
 const isCvvFocused = ref(false);
-const basePrice = ref(100);
+const basePrice = ref(0);
 
 const pricingBreakdown = computed(() => {
   const passengerCount = passengers.value.length;
@@ -83,6 +83,7 @@ function getCardBgClass(provider: string) {
 
 onMounted(() => {
   flightClassId.value = (route.params.flightClassId as string) || '';
+  basePrice.value = Number(route.query.price) || 0;
 });
 
 function addPassenger() {
@@ -127,7 +128,7 @@ async function validatePromo() {
   if (!promoCode.value) return;
   promoLoading.value = true;
   promoError.value = null;
-  const base = 100 * passengers.value.length;
+  const base = (basePrice.value || 100) * passengers.value.length;
   try {
     const res = await promotionsService.validate(promoCode.value, base);
     promoResult.value = res;

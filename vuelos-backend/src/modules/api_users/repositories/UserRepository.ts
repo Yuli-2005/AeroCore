@@ -53,4 +53,8 @@ export class UserRepository implements IUserRepository {
   async findFirstCity(): Promise<{ id: string } | null> {
     return this.db.city.findFirst({ select: { id: true }, orderBy: { name: 'asc' } });
   }
+
+  async findCityById(id: string): Promise<{ id: string } | null> {
+    return this.db.city.findUnique({ where: { id }, select: { id: true } });
+  }
 }

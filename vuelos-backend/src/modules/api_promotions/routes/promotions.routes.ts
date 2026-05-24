@@ -10,6 +10,7 @@ export function createPromotionRouter(controller: PromotionController): Router {
   router.get('/',          authenticate, requireAdmin, controller.list);
   router.post('/validate', validate(ValidatePromotionSchema), controller.validate);
   router.post('/',         authenticate, requireAdmin, validate(CreatePromotionSchema), controller.create);
+  router.get('/:id',       authenticate, requireAdmin, controller.getById);
   router.patch('/:id',     authenticate, requireAdmin, validate(UpdatePromotionSchema), controller.update);
   router.delete('/:id',    authenticate, requireAdmin, controller.remove);
   return router;

@@ -65,9 +65,16 @@ export class AuthService implements IAuthService {
     const existing = await this.userRepository.findByEmail(dto.email);
     if (existing) throw new ConflictException('El email ya está registrado');
 
-    // cityId es requerido en la BD. Si no se proporciona se busca la primera ciudad disponible.
+    // cityId es requerido en la BD. Si se proporciona uno que no existe o no se proporciona, se busca la primera ciudad disponible.
     let resolvedCityId = dto.cityId;
-    if (!resolvedCityId) {
+    let cityExists = false;
+    if (resolvedCityId) {
+      const city = await this.userRepository.findCityById(resolvedCityId);
+      if (city) {
+        cityExists = true;
+      }
+    }
+    if (!resolvedCityId || !cityExists) {
       const cities = await this.userRepository.findFirstCity();
       resolvedCityId = (cities as any)?.id;
     }

@@ -12,6 +12,13 @@ export class PromotionController {
     } catch (err) { next(err); }
   };
 
+  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const data = await this.promotionService.getById(String(req.params.id));
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  };
+
   validate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { code, amount } = req.body;

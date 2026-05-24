@@ -102,6 +102,9 @@ export class ReservationRepository implements IReservationRepository {
       }
 
       return reservation;
+    }, {
+      maxWait: 15000,
+      timeout: 25000,
     }) as any;
   }
 
@@ -118,6 +121,9 @@ export class ReservationRepository implements IReservationRepository {
           data: { availableSeats: { increment: passengerCount } },
         });
       }
+    }, {
+      maxWait: 15000,
+      timeout: 25000,
     });
   }
 

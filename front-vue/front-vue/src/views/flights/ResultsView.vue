@@ -76,8 +76,8 @@ async function load() {
   }
 }
 
-function reserve(flightClassId: string) {
-  router.push({ name: 'reservation-new', params: { flightClassId } });
+function reserve(flightClassId: string, basePrice: number) {
+  router.push({ name: 'reservation-new', params: { flightClassId }, query: { price: String(basePrice) } });
 }
 
 function depTime(f: Flight) {
@@ -292,7 +292,7 @@ function classIcon(t: string) {
                   </p>
                 </div>
                 <button
-                  @click="reserve(fc.id)"
+                  @click="reserve(fc.id, fc.basePrice)"
                   :disabled="fc.availableSeats === 0"
                   class="gradient-brand text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/25 hover:scale-[1.05] active:scale-95 disabled:opacity-40 disabled:hover:scale-100 whitespace-nowrap"
                 >

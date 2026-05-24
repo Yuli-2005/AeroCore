@@ -12,6 +12,12 @@ export class PromotionService implements IPromotionService {
     return result.data;
   }
 
+  async getById(id: string) {
+    const promo = await this.promotionRepository.findById(id);
+    if (!promo) throw new NotFoundException('Promoción', id);
+    return promo;
+  }
+
   async validate(code: string, amount: number) {
     const raw = await this.promotionRepository.findByCode(code);
     if (!raw || !raw.isActive) {
