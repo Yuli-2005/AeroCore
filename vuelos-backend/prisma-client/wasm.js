@@ -338,6 +338,111 @@ exports.Prisma.AuditLogScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.AircraftsScalarFieldEnum = {
+  id: 'id',
+  airline_id: 'airline_id',
+  model_name: 'model_name',
+  registration: 'registration',
+  has_wifi: 'has_wifi',
+  has_usb: 'has_usb'
+};
+
+exports.Prisma.Airline_airportsScalarFieldEnum = {
+  airline_id: 'airline_id',
+  airport_id: 'airport_id'
+};
+
+exports.Prisma.Airline_service_configsScalarFieldEnum = {
+  id: 'id',
+  service_id: 'service_id',
+  airline_id: 'airline_id',
+  origin_airport_id: 'origin_airport_id',
+  dest_airport_id: 'dest_airport_id',
+  price: 'price',
+  currency: 'currency'
+};
+
+exports.Prisma.AirlinesScalarFieldEnum = {
+  id: 'id',
+  iata_code: 'iata_code',
+  name: 'name',
+  logo_url: 'logo_url',
+  country_id: 'country_id'
+};
+
+exports.Prisma.AirportsScalarFieldEnum = {
+  id: 'id',
+  iata_code: 'iata_code',
+  name: 'name',
+  city_id: 'city_id',
+  timezone: 'timezone'
+};
+
+exports.Prisma.Audit_logsScalarFieldEnum = {
+  id: 'id',
+  user_id: 'user_id',
+  action: 'action',
+  entity: 'entity',
+  entity_id: 'entity_id',
+  old_data: 'old_data',
+  new_data: 'new_data',
+  ip_address: 'ip_address',
+  user_agent: 'user_agent',
+  created_at: 'created_at'
+};
+
+exports.Prisma.CitiesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  country_id: 'country_id',
+  iata_code: 'iata_code'
+};
+
+exports.Prisma.CountriesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  iso_code: 'iso_code',
+  phone_code: 'phone_code',
+  currency_code: 'currency_code'
+};
+
+exports.Prisma.Flight_classesScalarFieldEnum = {
+  id: 'id',
+  flight_id: 'flight_id',
+  cabin_class: 'cabin_class',
+  available_seats: 'available_seats',
+  base_price: 'base_price'
+};
+
+exports.Prisma.FlightsScalarFieldEnum = {
+  id: 'id',
+  origin_airport_iata: 'origin_airport_iata',
+  destination_airport_iata: 'destination_airport_iata',
+  departure_date: 'departure_date',
+  status: 'status'
+};
+
+exports.Prisma.SegmentsScalarFieldEnum = {
+  id: 'id',
+  segment_number: 'segment_number',
+  origin_airport_id: 'origin_airport_id',
+  destination_airport_id: 'destination_airport_id',
+  departure_datetime: 'departure_datetime',
+  arrival_datetime: 'arrival_datetime',
+  airline_id: 'airline_id',
+  aircraft_id: 'aircraft_id',
+  estimated_duration: 'estimated_duration',
+  flight_id: 'flight_id'
+};
+
+exports.Prisma.Service_catalogScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  code: 'code',
+  category: 'category',
+  description: 'description'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -401,6 +506,20 @@ exports.CheckInStatus = exports.$Enums.CheckInStatus = {
   NO_SHOW: 'NO_SHOW'
 };
 
+exports.cabin_class = exports.$Enums.cabin_class = {
+  ECONOMY: 'ECONOMY',
+  PREMIUM_ECONOMY: 'PREMIUM_ECONOMY',
+  BUSINESS: 'BUSINESS',
+  FIRST: 'FIRST'
+};
+
+exports.flight_status = exports.$Enums.flight_status = {
+  SCHEDULED: 'SCHEDULED',
+  DELAYED: 'DELAYED',
+  CANCELLED: 'CANCELLED',
+  COMPLETED: 'COMPLETED'
+};
+
 exports.Prisma.ModelName = {
   Country: 'Country',
   City: 'City',
@@ -423,7 +542,19 @@ exports.Prisma.ModelName = {
   Promotion: 'Promotion',
   Payment: 'Payment',
   BoardingPass: 'BoardingPass',
-  AuditLog: 'AuditLog'
+  AuditLog: 'AuditLog',
+  aircrafts: 'aircrafts',
+  airline_airports: 'airline_airports',
+  airline_service_configs: 'airline_service_configs',
+  airlines: 'airlines',
+  airports: 'airports',
+  audit_logs: 'audit_logs',
+  cities: 'cities',
+  countries: 'countries',
+  flight_classes: 'flight_classes',
+  flights: 'flights',
+  segments: 'segments',
+  service_catalog: 'service_catalog'
 };
 
 /**

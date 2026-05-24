@@ -7,17 +7,6 @@ info:
     API pública para que los módulos de otros equipos consulten vuelos y realicen reservas
     desde el módulo de **Yulieth Galarza** — Integración de Sistemas 2026.
 
-    ---
-
-    ## Autenticación
-
-    Esta API pública está configurada para pruebas de integración. **No requiere autenticación**.
-    Puedes consumir todos los endpoints directamente sin incluir cabeceras de autorización (`Authorization: Bearer <token>`).
-
-    *Nota: Las peticiones serán procesadas de forma interna bajo la cuenta del cliente de pruebas `demo@aerocore.com`.*
-
-    ---
-
     ## IDs de prueba (base de datos Supabase real)
 
     | Recurso | ID |

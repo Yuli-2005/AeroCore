@@ -303,22 +303,51 @@ try {
   console.error('❌ Error al cargar openapi.yaml:', error.message);
 }
 
+// ── Cargar spec pública (para equipos externos) ───────────────
+let publicSpec: object | null = null;
+try {
+  const filePath = path.resolve('openapi-public.yaml');
+  publicSpec = yaml.load(fs.readFileSync(filePath, 'utf8')) as object;
+} catch (error: any) {
+  console.warn('⚠️  openapi-public.yaml no encontrado:', error.message);
+}
+
 // ── Redirección para asegurar barra al final en Swagger UI ────
 app.use((req, res, next) => {
   const urlPath = req.path;
-  if (urlPath.match(/^\/api\/v1\/(yulieth-galarza\/)?docs$/)) {
+  if (urlPath.match(/^\/api\/v1\/(yulieth-galarza\/)?docs(-public)?$/)) {
     return res.redirect(301, req.originalUrl.replace(urlPath, urlPath + '/'));
   }
   next();
 });
 
-// ── Documentación Swagger UI (única, unificada) ───────────────
+// ── Documentación Swagger UI (unificada, interna) ────────────
 const activeSpec = unifiedSpec ?? swaggerSpec;
 
 app.use(['/api/v1/docs', `${PREFIX}/docs`], swaggerUi.serve, swaggerUi.setup(activeSpec, {
   customSiteTitle: 'Yulieth Galarza — Booking API Docs',
   swaggerOptions: { persistAuthorization: true },
 }));
+
+// ── Swagger UI pública (spec reducida para integración) ───────
+if (publicSpec) {
+  app.use(['/api/v1/docs-public', `${PREFIX}/docs-public`], swaggerUi.serve, swaggerUi.setup(publicSpec, {
+    customSiteTitle: 'Yulieth Galarza — Public API (Integración)',
+    swaggerOptions: { persistAuthorization: false },
+  }));
+}
+
+// Endpoint YAML de la spec pública
+app.get(['/api/v1/openapi-public.yaml', `${PREFIX}/openapi-public.yaml`], (_req, res) => {
+  res.setHeader('Content-Type', 'application/yaml');
+  res.sendFile(path.resolve('openapi-public.yaml'));
+});
+
+// Endpoint JSON de la spec pública
+app.get(['/api/v1/openapi-public.json', `${PREFIX}/openapi-public.json`], (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(publicSpec ?? {});
+});
 
 // Endpoint JSON del spec (para el frontend y herramientas externas)
 app.get(['/api/v1/docs.json', `${PREFIX}/docs.json`], (_req, res) => {

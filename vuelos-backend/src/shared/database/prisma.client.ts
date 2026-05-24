@@ -31,6 +31,10 @@ const prisma = new PrismaClient({
       url: databaseUrl,
     },
   },
+  transactionOptions: {
+    maxWait: 15000,
+    timeout: 25000,
+  },
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
 });
 
