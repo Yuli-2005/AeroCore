@@ -5,6 +5,7 @@ import { registerAuditSubscriber } from '../shared/events/audit-subscriber.js';
 import { bookingEventPublisher } from '../shared/events/event-publisher.middleware.js';
 import { validateJwtConfig } from '../shared/security/jwt.config.js';
 import prisma from '../shared/database/prisma.client.js';
+import { catalogDb } from '../shared/database/clients.js';
 
 import { ReservationRepository }         from '../modules/api_reservations/repositories/ReservationRepository.js';
 import { ReservationPassengerRepository } from '../modules/api_reservation_passengers/repositories/ReservationPassengerRepository.js';
@@ -41,7 +42,7 @@ const PORT = Number(process.env.BOOKING_SERVICE_PORT) || 3004;
 validateJwtConfig();
 
 // Repositories
-const reservationRepo         = new ReservationRepository(prisma);
+const reservationRepo         = new ReservationRepository(prisma, catalogDb);
 const reservationPassengerRepo = new ReservationPassengerRepository(prisma);
 const billingProfileRepo      = new BillingProfileRepository(prisma);
 const boardingPassRepo        = new BoardingPassRepository(prisma);

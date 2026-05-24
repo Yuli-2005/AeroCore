@@ -123,7 +123,7 @@ const airlineServiceConfigRepo = new AirlineServiceConfigRepository(catalogDb);
 const userRepo                 = new UserRepository(identityDb);
 const auditLogRepo             = new AuditLogRepository(identityDb);
 
-const reservationRepo          = new ReservationRepository(bookingDb);
+const reservationRepo          = new ReservationRepository(bookingDb, catalogDb);
 const promotionRepo            = new PromotionRepository(bookingDb);
 const boardingPassRepo         = new BoardingPassRepository(bookingDb);
 const passengerServiceRepo     = new PassengerServiceRepository(bookingDb);
