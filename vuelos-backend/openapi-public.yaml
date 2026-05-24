@@ -11,16 +11,10 @@ info:
 
     ## Autenticación
 
-    Los endpoints de reservas y pagos requieren un token JWT:
-    1. Ejecuta `POST /auth/login` → copia el campo `token`
-    2. Inclúyelo en todas las peticiones protegidas: `Authorization: Bearer <token>`
+    Esta API pública está configurada para pruebas de integración. **No requiere autenticación**.
+    Puedes consumir todos los endpoints directamente sin incluir cabeceras de autorización (`Authorization: Bearer <token>`).
 
-    **Credenciales de prueba:**
-
-    | Rol | Email | Contraseña |
-    |-----|-------|-----------|
-    | CUSTOMER | `demo@aerocore.com` | `Test@12345` |
-    | ADMIN | `yvgalarza@vuelosapp.com` | `Yuli@2005` |
+    *Nota: Las peticiones serán procesadas de forma interna bajo la cuenta del cliente de pruebas `demo@aerocore.com`.*
 
     ---
 
@@ -206,106 +200,7 @@ paths:
                           endpoints: { type: integer, example: 67 }
                           tables:    { type: integer, example: 22 }
 
-  # ── AUTH ─────────────────────────────────────────────────────
-  /auth/login:
-    post:
-      tags: [Auth]
-      summary: Iniciar sesión — retorna JWT
-      description: 'El token obtenido debe enviarse como `Authorization: Bearer <token>` en endpoints protegidos.'
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:    { type: string, format: email }
-                password: { type: string }
-            examples:
-              customer:
-                summary: Login CUSTOMER (demo)
-                value:
-                  email: demo@aerocore.com
-                  password: "Test@12345"
-              admin:
-                summary: Login ADMIN
-                value:
-                  email: yvgalarza@vuelosapp.com
-                  password: "Yuli@2005"
-      responses:
-        '200':
-          description: Login exitoso
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/MetaEnvelope'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          user:
-                            type: object
-                            properties:
-                              id:        { type: string }
-                              email:     { type: string }
-                              firstName: { type: string }
-                              role:      { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
-                          token: { type: string, example: "eyJhbGci..." }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /auth/register:
-    post:
-      tags: [Auth]
-      summary: Registrar nuevo usuario
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password, firstName, firstLastName]
-              properties:
-                email:         { type: string, format: email, example: "nuevo@ejemplo.com" }
-                password:      { type: string, minLength: 6, example: "Test@12345" }
-                firstName:     { type: string, example: "Carlos" }
-                firstLastName: { type: string, example: "Mendoza" }
-                mainAddress:   { type: string, example: "Av. República 123, Quito" }
-                cityId:        { type: string, example: "cmpc4ect20003swnzlnvgfcr8" }
-            example:
-              email: nuevo@ejemplo.com
-              password: "Test@12345"
-              firstName: Carlos
-              firstLastName: Mendoza
-              mainAddress: "Av. República 123, Quito"
-              cityId: cmpc4ect20003swnzlnvgfcr8
-      responses:
-        '201':
-          description: Usuario registrado
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/MetaEnvelope'
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        properties:
-                          user:
-                            type: object
-                            properties:
-                              id:        { type: string }
-                              email:     { type: string }
-                              firstName: { type: string }
-                              role:      { type: string, enum: [CUSTOMER, ADMIN, SERVICE] }
-                          token: { type: string, example: "eyJhbGci..." }
-        '400': { $ref: '#/components/responses/BadRequest' }
 
   # ── AIRPORTS ─────────────────────────────────────────────────
   /airports:
@@ -762,8 +657,7 @@ paths:
 tags:
   - name: Status
     description: Estado y metadatos del servicio
-  - name: Auth
-    description: Autenticación — obtener JWT
+
   - name: Airports
     description: Catálogo de aeropuertos
   - name: Flights
