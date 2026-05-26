@@ -41,7 +41,7 @@ const columns: TableColumn[] = [
 const form = ref({
   flightId: '',
   cabinClass: 'ECONOMY',
-  availableSeats: 0,
+  availableSeats: 100,
   basePrice: 0,
 });
 
@@ -75,7 +75,7 @@ function openAdd() {
   form.value = {
     flightId: '',
     cabinClass: 'ECONOMY',
-    availableSeats: 0,
+    availableSeats: 100,
     basePrice: 0,
   };
   modalOpen.value = true;
