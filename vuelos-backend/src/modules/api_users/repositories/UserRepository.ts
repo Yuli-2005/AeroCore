@@ -7,7 +7,10 @@ import { PagedResult } from '../../../shared/interfaces/IBaseRepository.js';
 const include = { city: { include: { country: true } } };
 
 export class UserRepository implements IUserRepository {
-  constructor(private readonly db: PrismaClient) {}
+  constructor(
+    private readonly db: PrismaClient,
+    private readonly catalog?: any,
+  ) {}
 
   async findAll(page = 1, limit = 100): Promise<PagedResult<User>> {
     const skip = (page - 1) * limit;
@@ -51,10 +54,12 @@ export class UserRepository implements IUserRepository {
   }
 
   async findFirstCity(): Promise<{ id: string } | null> {
-    return this.db.city.findFirst({ select: { id: true }, orderBy: { name: 'asc' } });
+    const catalog = this.catalog as any;
+    return catalog.city.findFirst({ select: { id: true }, orderBy: { name: 'asc' } });
   }
 
   async findCityById(id: string): Promise<{ id: string } | null> {
-    return this.db.city.findUnique({ where: { id }, select: { id: true } });
+    const catalog = this.catalog as any;
+    return catalog.city.findUnique({ where: { id }, select: { id: true } });
   }
 }

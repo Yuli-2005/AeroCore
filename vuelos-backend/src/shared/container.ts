@@ -120,7 +120,7 @@ const serviceCatalogRepo       = new ServiceCatalogRepository(catalogDb);
 const airlineAirportRepo       = new AirlineAirportRepository(catalogDb);
 const airlineServiceConfigRepo = new AirlineServiceConfigRepository(catalogDb);
 
-const userRepo                 = new UserRepository(identityDb);
+const userRepo                 = new UserRepository(identityDb, catalogDb);
 const auditLogRepo             = new AuditLogRepository(identityDb);
 
 const reservationRepo          = new ReservationRepository(bookingDb, catalogDb);
