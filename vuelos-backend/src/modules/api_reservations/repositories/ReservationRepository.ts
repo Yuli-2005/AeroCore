@@ -8,6 +8,19 @@ const bookingInclude = {
   promotion: true,
 };
 
+const flightInclude = {
+  segments: {
+    include: {
+      originAirport: { include: { city: { include: { country: true } } } },
+      destinationAirport: { include: { city: { include: { country: true } } } },
+      airline: true,
+      aircraft: true,
+    },
+    orderBy: { departureDateTime: 'asc' as const },
+  },
+  flightClasses: { orderBy: { basePrice: 'asc' as const } },
+};
+
 export class ReservationRepository implements IReservationRepository {
   constructor(
     private readonly db: any,       // bookingDb
@@ -23,24 +36,40 @@ export class ReservationRepository implements IReservationRepository {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) } as any;
   }
 
+  private async enrichWithFlight(reservation: any): Promise<any> {
+    if (!reservation?.flightId) return reservation;
+    try {
+      const flight = await this.catalogDb.flight.findUnique({
+        where: { id: reservation.flightId },
+        include: flightInclude,
+      });
+      return { ...reservation, flight };
+    } catch {
+      return reservation;
+    }
+  }
+
   async findById(id: string): Promise<Reservation | null> {
     return this.db.reservation.findUnique({ where: { id } }) as any;
   }
 
   async findByUserId(userId: string): Promise<any[]> {
-    return this.db.reservation.findMany({
+    const reservations = await this.db.reservation.findMany({
       where: { userId },
       include: bookingInclude,
       orderBy: { createdAt: 'desc' },
     });
+    return Promise.all(reservations.map((r: any) => this.enrichWithFlight(r)));
   }
 
   async findByIdWithRelations(id: string): Promise<any | null> {
-    return this.db.reservation.findUnique({ where: { id }, include: bookingInclude });
+    const reservation = await this.db.reservation.findUnique({ where: { id }, include: bookingInclude });
+    return this.enrichWithFlight(reservation);
   }
 
   async findAllWithRelations(): Promise<any[]> {
-    return this.db.reservation.findMany({ include: bookingInclude, orderBy: { createdAt: 'desc' } });
+    const reservations = await this.db.reservation.findMany({ include: bookingInclude, orderBy: { createdAt: 'desc' } });
+    return Promise.all(reservations.map((r: any) => this.enrichWithFlight(r)));
   }
 
   async updateStatus(id: string, status: string): Promise<void> {
