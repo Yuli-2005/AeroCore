@@ -3,6 +3,7 @@ import { createServiceApp } from '../shared/app-factory.js';
 import { errorHandler } from '../shared/middlewares/error.middleware.js';
 import { validateJwtConfig } from '../shared/security/jwt.config.js';
 import prisma from '../shared/database/prisma.client.js';
+import { catalogDb, identityDb, bookingDb, paymentsDb } from '../shared/database/clients.js';
 
 import { UserRepository }    from '../modules/api_users/repositories/UserRepository.js';
 import { AuditLogRepository } from '../modules/api_audit_logs/repositories/AuditLogRepository.js';
@@ -12,7 +13,6 @@ import {
   FlightQueryRepository,
   ReservationQueryRepository,
   UserQueryRepository,
-  AuditLogQueryRepository,
 } from '../shared/queries/index.js';
 
 import { UserService }     from '../modules/api_users/services/UserService.js';
@@ -29,15 +29,14 @@ const PORT = Number(process.env.ADMIN_SERVICE_PORT) || 3006;
 validateJwtConfig();
 
 // Repositories
-const userRepo     = new UserRepository(prisma);
-const auditLogRepo = new AuditLogRepository(prisma);
+const userRepo     = new UserRepository(identityDb, catalogDb);
+const auditLogRepo = new AuditLogRepository(identityDb);
 
 // Query repos (multi-dominio para estadísticas del dashboard admin)
-const airportQuery     = new AirportQueryRepository(prisma);
-const flightQuery      = new FlightQueryRepository(prisma);
-const reservationQuery = new ReservationQueryRepository(prisma);
-const userQuery        = new UserQueryRepository(prisma);
-const auditLogQuery    = new AuditLogQueryRepository(prisma);
+const airportQuery     = new AirportQueryRepository(catalogDb);
+const flightQuery      = new FlightQueryRepository(catalogDb);
+const reservationQuery = new ReservationQueryRepository(bookingDb);
+const userQuery        = new UserQueryRepository(identityDb);
 
 // Services
 const userService     = new UserService(userRepo);
@@ -59,9 +58,9 @@ app.get(['/health', '/'], (_req, res) => {
   });
 });
 
-app.use('/api/v1/admin',      createAdminRouter(adminController, prisma));
+app.use('/api/v1/admin',      createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
 app.use('/api/v1/audit-logs', createAuditLogRouter(auditLogController));
-app.use('/api/admin',         createAdminRouter(adminController, prisma));
+app.use('/api/admin',         createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
 
 app.use((req, res) => {
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Ruta ${req.originalUrl} no encontrada` } });
