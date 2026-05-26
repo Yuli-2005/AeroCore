@@ -70,6 +70,7 @@ import { createAuditLogRouter }              from './modules/api_audit_logs/rout
 import { errorHandler }                      from './shared/middlewares/error.middleware.js';
 import { validateJwtConfig }                 from './shared/security/jwt.config.js';
 import { startGrpcServer }                   from './grpc/grpc.server.js';
+import { registerRoutes, getGatewayStats }  from './shared/gateway.js';
 
 // ============================================================
 //                        APP SETUP
@@ -249,54 +250,57 @@ app.get(['/', '/api/v1', '/api/v1/yulieth-galarza'], (_req, res) => {
 });
 
 // ============================================================
-//   RUTAS v1
+//   API GATEWAY — enrutamiento centralizado por microservicio
 // ============================================================
 
 const PREFIX = '/api/v1/yulieth-galarza';
 
-// Auth & Users
-app.use(['/api/v1/auth', `${PREFIX}/auth`],         createAuthRouter(authController));
-app.use(['/api/v1/reservations', `${PREFIX}/reservations`], createReservationRouter(reservationController, bookingDb));
-app.use(['/api/v1/promotions', `${PREFIX}/promotions`],   createPromotionRouter(promotionController));
+registerRoutes(app, [
+  // ── ms_identity ───────────────────────────────────────────
+  { service: 'ms_identity', paths: ['/api/v1/auth'],                   router: createAuthRouter(authController) },
+  { service: 'ms_identity', paths: ['/api/v1/audit-logs'],             router: createAuditLogRouter(auditLogController) },
 
-// Catálogos geográficos (GET público, mutaciones admin)
-app.use(['/api/v1/countries', `${PREFIX}/countries`], createCountryRouter(countryController));
-app.use(['/api/v1/cities', `${PREFIX}/cities`],    createCityRouter(cityController));
-app.use(['/api/v1/airports', `${PREFIX}/airports`],  createAirportRouter(airportController));
+  // ── ms_catalog ────────────────────────────────────────────
+  { service: 'ms_catalog',  paths: ['/api/v1/countries'],              router: createCountryRouter(countryController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/cities'],                 router: createCityRouter(cityController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/airports'],               router: createAirportRouter(airportController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/airlines'],               router: createAirlineRouter(airlineController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/aircraft'],               router: createAircraftRouter(aircraftController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/airline-airports'],       router: createAirlineAirportRouter(airlineAirportController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/airline-service-config'], router: createAirlineServiceConfigRouter(airlineServiceConfigController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/flights'],                router: createFlightRouter(flightController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/flight-classes'],         router: createFlightClassRouter(flightClassController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/segments'],               router: createSegmentRouter(segmentController) },
+  { service: 'ms_catalog',  paths: ['/api/v1/service-catalog'],        router: createServiceCatalogRouter(serviceCatalogController) },
 
-// Aerolíneas y aeronaves (GET público, mutaciones admin)
-app.use(['/api/v1/airlines', `${PREFIX}/airlines`],              createAirlineRouter(airlineController));
-app.use(['/api/v1/aircraft', `${PREFIX}/aircraft`],              createAircraftRouter(aircraftController));
-app.use(['/api/v1/airline-airports', `${PREFIX}/airline-airports`],      createAirlineAirportRouter(airlineAirportController));
-app.use(['/api/v1/airline-service-config', `${PREFIX}/airline-service-config`],createAirlineServiceConfigRouter(airlineServiceConfigController));
+  // ── ms_booking ────────────────────────────────────────────
+  { service: 'ms_booking',  paths: ['/api/v1/reservations'],           router: createReservationRouter(reservationController, bookingDb) },
+  { service: 'ms_booking',  paths: ['/api/v1/promotions'],             router: createPromotionRouter(promotionController) },
+  { service: 'ms_booking',  paths: ['/api/v1/boarding-passes'],        router: createBoardingPassRouter(boardingPassController, bookingDb) },
+  { service: 'ms_booking',  paths: ['/api/v1/passenger-services'],     router: createPassengerServiceRouter(passengerServiceController, bookingDb) },
+  { service: 'ms_booking',  paths: ['/api/v1/reservation-passengers'], router: createReservationPassengerRouter(reservationPassengerController, bookingDb) },
 
-// Vuelos y clases (GET público, mutaciones admin)
-app.use(['/api/v1/flights', `${PREFIX}/flights`],       createFlightRouter(flightController));
-app.use(['/api/v1/flight-classes', `${PREFIX}/flight-classes`],createFlightClassRouter(flightClassController));
-app.use(['/api/v1/segments', `${PREFIX}/segments`],      createSegmentRouter(segmentController));
+  // ── ms_payments ───────────────────────────────────────────
+  { service: 'ms_payments', paths: ['/api/v1/payments'],               router: createPaymentRouter(paymentController, bookingDb, paymentsDb) },
+  { service: 'ms_payments', paths: ['/api/v1/billing-profiles'],       router: createBillingProfileRouter(billingProfileController, paymentsDb) },
+  { service: 'ms_payments', paths: ['/api/v1/invoices'],               router: createInvoiceRouter(invoiceController, paymentsDb) },
+  { service: 'ms_payments', paths: ['/api/v1/invoice-items'],          router: createInvoiceItemRouter(invoiceItemController, paymentsDb) },
 
-// Servicios de catálogo (GET público, mutaciones admin)
-app.use(['/api/v1/service-catalog', `${PREFIX}/service-catalog`], createServiceCatalogRouter(serviceCatalogController));
+  // ── ms_admin ──────────────────────────────────────────────
+  { service: 'ms_admin',    paths: ['/api/v1/admin'],                  router: createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb) },
+]);
 
-// Operaciones autenticadas
-app.use(['/api/v1/billing-profiles', `${PREFIX}/billing-profiles`],       createBillingProfileRouter(billingProfileController, paymentsDb));
-app.use(['/api/v1/boarding-passes', `${PREFIX}/boarding-passes`],        createBoardingPassRouter(boardingPassController, bookingDb));
-app.use(['/api/v1/payments', `${PREFIX}/payments`],               createPaymentRouter(paymentController, bookingDb, paymentsDb));
-app.use(['/api/v1/invoices', `${PREFIX}/invoices`],               createInvoiceRouter(invoiceController, paymentsDb));
-app.use(['/api/v1/invoice-items', `${PREFIX}/invoice-items`],          createInvoiceItemRouter(invoiceItemController, paymentsDb));
-app.use(['/api/v1/passenger-services', `${PREFIX}/passenger-services`],     createPassengerServiceRouter(passengerServiceController, bookingDb));
-app.use(['/api/v1/reservation-passengers', `${PREFIX}/reservation-passengers`], createReservationPassengerRouter(reservationPassengerController, bookingDb));
-app.use(['/api/v1/audit-logs', `${PREFIX}/audit-logs`],             createAuditLogRouter(auditLogController));
-
-// Admin panel (todas requieren ADMIN)
-app.use(['/api/v1/admin', `${PREFIX}/admin`], createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
+// Gateway stats — visible para la presentación
+app.get(['/api/v1/gateway', '/api/v1/yulieth-galarza/gateway'], (_req, res) => {
+  res.json({ success: true, data: { gateway: 'AeroCore API Gateway v1.0', ...getGatewayStats() } });
+});
 
 // ── Alias sin versión (backward compatibility) ───────────────
-app.use('/api/auth',                  createAuthRouter(authController));
-app.use('/api/flights',               createFlightRouter(flightController));
-app.use('/api/reservations',          createReservationRouter(reservationController, bookingDb));
-app.use('/api/promotions',            createPromotionRouter(promotionController));
-app.use('/api/admin',                 createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
+app.use('/api/auth',         createAuthRouter(authController));
+app.use('/api/flights',      createFlightRouter(flightController));
+app.use('/api/reservations', createReservationRouter(reservationController, bookingDb));
+app.use('/api/promotions',   createPromotionRouter(promotionController));
+app.use('/api/admin',        createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
 
 // ── Cargar contrato OpenAPI unificado ────────────────────────
 let unifiedSpec: object | null = null;
