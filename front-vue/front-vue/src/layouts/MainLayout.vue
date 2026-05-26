@@ -8,6 +8,11 @@ const mobileOpen = ref(false);
 
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const isAdmin = computed(() => authStore.isAdmin);
+const userName = computed(() => authStore.user?.firstName ?? 'Usuario');
+
+function logout() {
+  authStore.clearAuth();
+}
 </script>
 
 <template>
@@ -50,6 +55,24 @@ const isAdmin = computed(() => authStore.isAdmin);
             </router-link>
           </nav>
 
+          <!-- Auth buttons (desktop) -->
+          <div class="hidden md:flex items-center gap-2">
+            <template v-if="isAuthenticated">
+              <span class="text-sm text-gray-500 font-medium">Hola, {{ userName }}</span>
+              <button @click="logout" class="text-sm px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all duration-200">
+                Cerrar sesión
+              </button>
+            </template>
+            <template v-else>
+              <router-link to="/login" class="text-sm px-4 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200">
+                Iniciar sesión
+              </router-link>
+              <router-link to="/register" class="text-sm px-4 py-2 rounded-xl gradient-brand text-white hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200">
+                Registrarse
+              </router-link>
+            </template>
+          </div>
+
           <!-- Mobile toggle -->
           <div class="flex items-center gap-3">
             <!-- Mobile menu button -->
@@ -78,6 +101,21 @@ const isAdmin = computed(() => authStore.isAdmin);
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
             Admin
           </router-link>
+          <div class="pt-2 border-t border-gray-100 mt-1">
+            <template v-if="isAuthenticated">
+              <button @click="logout; mobileOpen = false" class="w-full text-left flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">
+                Cerrar sesión
+              </button>
+            </template>
+            <template v-else>
+              <router-link @click="mobileOpen = false" to="/login" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                Iniciar sesión
+              </router-link>
+              <router-link @click="mobileOpen = false" to="/register" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white gradient-brand transition-colors mt-1">
+                Registrarse
+              </router-link>
+            </template>
+          </div>
         </div>
       </div>
     </header>

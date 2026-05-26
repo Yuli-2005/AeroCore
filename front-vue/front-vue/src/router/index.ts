@@ -211,19 +211,25 @@ router.beforeEach(async (to, _from, next) => {
   const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
   const neededRole = requiresAdmin ? 'ADMIN' : 'CUSTOMER';
 
-  // Auto-login silencioso si no está autenticado o si requiere rol de administrador y no lo tiene
-  if (!authStore.isAuthenticated || (requiresAdmin && !authStore.isAdmin)) {
-    await authStore.autoLogin(neededRole);
-  }
-
-  // Redireccionar login o register a la página principal ya que no se usarán
-  if (to.name === 'login' || to.name === 'register') {
-    next({ name: 'home' });
-    return;
+  // Auto-login silencioso solo para rutas de admin
+  if (requiresAdmin && (!authStore.isAuthenticated || !authStore.isAdmin)) {
+    await authStore.autoLogin('ADMIN');
   }
 
   const authenticated = authStore.isAuthenticated;
   const isAdmin = authStore.isAdmin;
+
+  // Redirigir al home si ya está logueado e intenta ir a login/register
+  if ((to.name === 'login' || to.name === 'register') && authenticated) {
+    next({ name: 'home' });
+    return;
+  }
+
+  // Rutas que requieren autenticación → redirigir al login
+  if (to.meta.requiresAuth && !authenticated) {
+    next({ name: 'login' });
+    return;
+  }
 
   if (requiresAdmin) {
     if (!authenticated || !isAdmin) {
