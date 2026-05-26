@@ -209,7 +209,6 @@ router.beforeEach(async (to, _from, next) => {
 
   // Determinar el rol necesario según la ruta
   const requiresAdmin = to.matched.some((record) => record.meta.requiresAdmin);
-  const neededRole = requiresAdmin ? 'ADMIN' : 'CUSTOMER';
 
   // Auto-login silencioso solo para rutas de admin
   if (requiresAdmin && (!authStore.isAuthenticated || !authStore.isAdmin)) {
