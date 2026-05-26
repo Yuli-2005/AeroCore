@@ -6,9 +6,8 @@ import { authenticate, requireAdmin } from '../../../shared/middlewares/auth.mid
 import { validate } from '../../../shared/middlewares/validate.middleware.js';
 import { CreateFlightClassSchema, UpdateFlightClassSchema, CreateSegmentSchema, UpdateSegmentSchema } from '../../../shared/schemas/validation.schemas.js';
 import type { ZodSchema } from 'zod';
-import type { PrismaClient } from '@prisma/client';
 
-async function audit(db: PrismaClient, req: any, action: string, entity: string, entityId: string, oldData: any, newData: any) {
+async function audit(db: any, req: any, action: string, entity: string, entityId: string, oldData: any, newData: any) {
   try {
     await db.auditLog.create({
       data: {
@@ -27,7 +26,7 @@ async function audit(db: PrismaClient, req: any, action: string, entity: string,
 
 // Repositorios genéricos usados directamente para CRUD simple de catálogos
 function makeGenericRouter(
-  db: PrismaClient,
+  db: any,
   model: any,
   include?: object,
   schemas?: { create?: ZodSchema; update?: ZodSchema },
@@ -79,7 +78,13 @@ function makeGenericRouter(
   return router;
 }
 
-export function createAdminRouter(controller: AdminController, db: PrismaClient): Router {
+export function createAdminRouter(
+  controller: AdminController,
+  cDb: any,
+  iDb: any,
+  bDb: any,
+  pDb: any,
+): Router {
   const router = Router();
   const auth = [authenticate, requireAdmin];
 
@@ -96,19 +101,17 @@ export function createAdminRouter(controller: AdminController, db: PrismaClient)
       const passwordHash = await bcrypt.default.hash(String(password), 10);
       let cityId = rawCityId;
       if (!cityId) {
-        const city = await db.city.findFirst({ select: { id: true }, orderBy: { name: 'asc' } });
+        const city = await cDb.city.findFirst({ select: { id: true }, orderBy: { name: 'asc' } });
         cityId = city?.id;
       }
       const mainAddress = rest.mainAddress ?? 'Sin dirección';
-      const user = await db.user.create({
+      const user = await iDb.user.create({
         data: { ...rest, mainAddress, cityId, passwordHash },
-        include: { city: { include: { country: true } } },
       });
       const { passwordHash: _ph, ...safe } = user as any;
       res.status(201).json({ success: true, data: safe });
     } catch (err) { next(err); }
   });
-  // PATCH / PUT usuarios — maneja re-hash de password si se envía
   const updateUserHandler = async (req: any, res: any, next: any) => {
     try {
       const bcrypt = await import('bcryptjs');
@@ -117,10 +120,9 @@ export function createAdminRouter(controller: AdminController, db: PrismaClient)
       if (password)   updateData.passwordHash = await bcrypt.default.hash(String(password), 10);
       if (birthDate)  updateData.birthDate    = new Date(birthDate);
       if (cityId)     updateData.cityId       = cityId;
-      const user = await db.user.update({
+      const user = await iDb.user.update({
         where: { id: String(req.params.id) },
         data: updateData,
-        include: { city: { include: { country: true } } },
       });
       const { passwordHash: _ph, ...safe } = user as any;
       res.json({ success: true, data: safe });
@@ -131,26 +133,26 @@ export function createAdminRouter(controller: AdminController, db: PrismaClient)
   router.delete('/users/:id', ...auth, controller.deleteUser);
 
   // ── Catálogos geográficos ────────────────────────────────────
-  router.use('/countries', ...auth, makeGenericRouter(db, 'country'));
-  router.use('/cities',    ...auth, makeGenericRouter(db, 'city',    { country: true }));
-  router.use('/airports',  ...auth, makeGenericRouter(db, 'airport', { city: { include: { country: true } } }));
+  router.use('/countries', ...auth, makeGenericRouter(cDb, 'country'));
+  router.use('/cities',    ...auth, makeGenericRouter(cDb, 'city',    { country: true }));
+  router.use('/airports',  ...auth, makeGenericRouter(cDb, 'airport', { city: { include: { country: true } } }));
 
   // ── Aerolíneas y aeronaves ───────────────────────────────────
-  router.use('/airlines',  ...auth, makeGenericRouter(db, 'airline',  { country: true }));
-  router.use('/aircraft',  ...auth, makeGenericRouter(db, 'aircraft', { airline: true }));
+  router.use('/airlines',  ...auth, makeGenericRouter(cDb, 'airline',  { country: true }));
+  router.use('/aircraft',  ...auth, makeGenericRouter(cDb, 'aircraft', { airline: true }));
 
   // ── Relación aerolínea-aeropuerto ───────────────────────────
   router.get('/airline-airports', ...auth, async (_req, res, next) => {
     try {
-      const data = await db.airlineAirport.findMany({ include: { airline: true, airport: true } });
+      const data = await cDb.airlineAirport.findMany({ include: { airline: true, airport: true } });
       res.json({ success: true, data: { data, pagination: { total: data.length } } });
     } catch (err) { next(err); }
   });
   router.post('/airline-airports', ...auth, async (req, res, next) => {
     try {
       const { airlineId, airportId } = req.body;
-      const data = await db.airlineAirport.create({ data: { airlineId, airportId }, include: { airline: true, airport: true } });
-      await audit(db, req, 'CREATE', 'airlineAirport', `${airlineId}_${airportId}`, null, data);
+      const data = await cDb.airlineAirport.create({ data: { airlineId, airportId }, include: { airline: true, airport: true } });
+      await audit(iDb, req, 'CREATE', 'airlineAirport', `${airlineId}_${airportId}`, null, data);
       res.status(201).json({ success: true, data });
     } catch (err) { next(err); }
   });
@@ -158,16 +160,16 @@ export function createAdminRouter(controller: AdminController, db: PrismaClient)
     try {
       const airlineId = String(req.params.airlineId);
       const airportId = String(req.params.airportId);
-      const oldData = await db.airlineAirport.findFirst({ where: { airlineId, airportId } });
-      await db.airlineAirport.delete({ where: { airlineId_airportId: { airlineId: String(airlineId), airportId: String(airportId) } } });
-      await audit(db, req, 'DELETE', 'airlineAirport', `${airlineId}_${airportId}`, oldData, null);
+      const oldData = await cDb.airlineAirport.findFirst({ where: { airlineId, airportId } });
+      await cDb.airlineAirport.delete({ where: { airlineId_airportId: { airlineId, airportId } } });
+      await audit(iDb, req, 'DELETE', 'airlineAirport', `${airlineId}_${airportId}`, oldData, null);
       res.json({ success: true, data: { deleted: true } });
     } catch (err) { next(err); }
   });
 
   // ── Vuelos ──────────────────────────────────────────────────
-  router.use('/flightclasses', ...auth, makeGenericRouter(db, 'flightClass', { flight: true }, { create: CreateFlightClassSchema, update: UpdateFlightClassSchema }));
-  router.use('/segments',      ...auth, makeGenericRouter(db, 'segment', {
+  router.use('/flightclasses', ...auth, makeGenericRouter(cDb, 'flightClass', { flight: true }, { create: CreateFlightClassSchema, update: UpdateFlightClassSchema }));
+  router.use('/segments',      ...auth, makeGenericRouter(cDb, 'segment', {
     originAirport: true,
     destinationAirport: true,
     airline: true,
@@ -175,52 +177,47 @@ export function createAdminRouter(controller: AdminController, db: PrismaClient)
   }, { create: CreateSegmentSchema, update: UpdateSegmentSchema }));
 
   // ── Reservas y pasajeros ────────────────────────────────────
-  router.use('/reservations', ...auth, makeGenericRouter(db, 'reservation', {
+  router.use('/reservations', ...auth, makeGenericRouter(bDb, 'reservation', {
     passengers: true,
-    flight: true,
-    user: { select: { id: true, email: true, firstName: true, firstLastName: true } },
   }));
-  router.use('/reservation-passengers', ...auth, makeGenericRouter(db, 'reservationPassenger', {
+  router.use('/reservation-passengers', ...auth, makeGenericRouter(bDb, 'reservationPassenger', {
     reservation: { select: { id: true, reservationCode: true } },
     flightClass: true,
   }));
 
   // ── Servicios y configuración ───────────────────────────────
-  router.use('/servicecatalog',        ...auth, makeGenericRouter(db, 'serviceCatalog'));
-  router.use('/airline-service-config',...auth, makeGenericRouter(db, 'airlineServiceConfig', {
+  router.use('/servicecatalog',         ...auth, makeGenericRouter(cDb, 'serviceCatalog'));
+  router.use('/airline-service-config', ...auth, makeGenericRouter(cDb, 'airlineServiceConfig', {
     service: true,
     airline: true,
   }));
-  router.use('/passenger-services', ...auth, makeGenericRouter(db, 'passengerService', {
+  router.use('/passenger-services', ...auth, makeGenericRouter(bDb, 'passengerService', {
     passenger: true,
     serviceConfig: { include: { service: true } },
   }));
 
   // ── Promociones ─────────────────────────────────────────────
-  router.use('/promotions', ...auth, makeGenericRouter(db, 'promotion'));
+  router.use('/promotions', ...auth, makeGenericRouter(bDb, 'promotion'));
 
   // ── Pagos y facturación ─────────────────────────────────────
-  router.use('/payments', ...auth, makeGenericRouter(db, 'payment', {
+  router.use('/payments', ...auth, makeGenericRouter(pDb, 'payment', {
     reservation: { select: { id: true, reservationCode: true, totalAmount: true } },
   }));
-  router.use('/billing-profiles', ...auth, makeGenericRouter(db, 'billingProfile', {
-    city: { include: { country: true } },
-  }));
-  router.use('/invoices', ...auth, makeGenericRouter(db, 'invoice', {
+  router.use('/billing-profiles', ...auth, makeGenericRouter(pDb, 'billingProfile'));
+  router.use('/invoices',         ...auth, makeGenericRouter(pDb, 'invoice', {
     payment: true,
-    billingProfile: true,
     items: true,
   }));
-  router.use('/invoice-items', ...auth, makeGenericRouter(db, 'invoiceItem'));
+  router.use('/invoice-items', ...auth, makeGenericRouter(pDb, 'invoiceItem'));
 
   // ── Embarque ────────────────────────────────────────────────
-  router.use('/boarding-passes', ...auth, makeGenericRouter(db, 'boardingPass', {
+  router.use('/boarding-passes', ...auth, makeGenericRouter(bDb, 'boardingPass', {
     passenger: true,
     segment: { include: { originAirport: true, destinationAirport: true, airline: true } },
   }));
 
   // ── Auditoría ────────────────────────────────────────────────
-  router.use('/auditlogs', ...auth, makeGenericRouter(db, 'auditLog'));
+  router.use('/auditlogs', ...auth, makeGenericRouter(iDb, 'auditLog'));
 
   return router;
 }

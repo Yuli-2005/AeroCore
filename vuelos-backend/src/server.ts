@@ -37,6 +37,8 @@ import {
   reservationPassengerController,
   auditLogController,
   prisma,
+  catalogDb,
+  identityDb,
   bookingDb,
   paymentsDb,
 } from './shared/container.js';
@@ -287,14 +289,14 @@ app.use(['/api/v1/reservation-passengers', `${PREFIX}/reservation-passengers`], 
 app.use(['/api/v1/audit-logs', `${PREFIX}/audit-logs`],             createAuditLogRouter(auditLogController));
 
 // Admin panel (todas requieren ADMIN)
-app.use(['/api/v1/admin', `${PREFIX}/admin`], createAdminRouter(adminController, prisma));
+app.use(['/api/v1/admin', `${PREFIX}/admin`], createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
 
 // ── Alias sin versión (backward compatibility) ───────────────
 app.use('/api/auth',                  createAuthRouter(authController));
 app.use('/api/flights',               createFlightRouter(flightController));
 app.use('/api/reservations',          createReservationRouter(reservationController, bookingDb));
 app.use('/api/promotions',            createPromotionRouter(promotionController));
-app.use('/api/admin',                 createAdminRouter(adminController, prisma));
+app.use('/api/admin',                 createAdminRouter(adminController, catalogDb, identityDb, bookingDb, paymentsDb));
 
 // ── Cargar contrato OpenAPI unificado ────────────────────────
 let unifiedSpec: object | null = null;
