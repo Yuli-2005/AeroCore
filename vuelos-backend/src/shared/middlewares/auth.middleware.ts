@@ -2,7 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { getJwtSecret, getJwtVerifyOptions } from '../security/jwt.config.js';
-import prisma from '../database/prisma.client.js';
+import { identityDb } from '../database/clients.js';
 
 declare global {
   namespace Express {
@@ -16,7 +16,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     try {
-      const db = prisma as any;
+      const db = identityDb as any;
       let defaultUser = await db.user.findFirst({
         where: { email: 'demo@aerocore.com' },
       });
@@ -44,7 +44,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     const token = header.slice(7);
     const payload = jwt.verify(token, getJwtSecret(), getJwtVerifyOptions()) as any;
 
-    const db = prisma as any;
+    const db = identityDb as any;
     const dbUser = await db.user.findUnique({
       where: { email: payload.email },
       select: { isActive: true, tokenVersion: true },
