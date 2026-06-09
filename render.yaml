@@ -6,7 +6,7 @@ services:
     region: oregon
     plan: free
     rootDir: api-gateway
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -36,7 +36,7 @@ services:
     region: oregon
     plan: free
     rootDir: vuelos-backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
