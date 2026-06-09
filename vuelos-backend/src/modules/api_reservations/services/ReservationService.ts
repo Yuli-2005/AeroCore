@@ -9,6 +9,10 @@ import {
   NotFoundException, ValidationException,
   ForbiddenException, NoAvailabilityException, ConflictException,
 } from '../../../shared/exceptions/BusinessException.js';
+import {
+  publishBookingCreated,
+  publishBookingCancelled,
+} from '../../../events/producers/booking.producer.js';
 
 export class ReservationService implements IReservationService {
   constructor(
@@ -59,7 +63,7 @@ export class ReservationService implements IReservationService {
     }
 
     try {
-      return await this.reservationRepository.create({
+      const reservation = await this.reservationRepository.create({
         userId,
         flightId: (flightClass as any).flightId,
         promotionId,
@@ -74,6 +78,20 @@ export class ReservationService implements IReservationService {
         passengerCount: dto.passengers.length,
         promotionId_forUsageIncrement: promotionId,
       });
+
+      // Publica el evento — los consumers actualizan seats, audit, etc.
+      publishBookingCreated({
+        reservationId:   reservation.id,
+        reservationCode: reservation.reservationCode,
+        flightClassId:   dto.flightClassId,
+        flightId:        (flightClass as any).flightId,
+        userId,
+        passengerCount:  dto.passengers.length,
+        totalAmount:     Number(totalAmount),
+        promotionId:     promotionId ?? null,
+      });
+
+      return reservation;
     } catch (err: any) {
       if (err?.message === 'NO_AVAILABILITY') {
         throw new NoAvailabilityException('No quedan suficientes asientos disponibles para esta clase');
@@ -125,6 +143,15 @@ export class ReservationService implements IReservationService {
     if (promotionId) {
       await this.promotionRepository.decrementUsage(promotionId);
     }
+
+    // Publica el evento — catalog.consumer restaura los asientos
+    publishBookingCancelled({
+      reservationId:   id,
+      reservationCode: reservation.reservationCode,
+      flightClassId:   flightClassId ?? '',
+      passengerCount,
+      promotionId:     promotionId ?? null,
+    });
 
     return { cancelled: true, reservationCode: reservation.reservationCode };
   }

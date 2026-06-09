@@ -6,6 +6,7 @@ import { IPaymentRepository } from '../interfaces/IPaymentRepository.js';
 import { IBillingProfileRepository } from '../../api_billing_profiles/interfaces/IBillingProfileRepository.js';
 import { IInvoiceRepository } from '../../api_invoices/interfaces/IInvoiceRepository.js';
 import { NotFoundException } from '../../../shared/exceptions/BusinessException.js';
+import { publishPaymentConfirmed } from '../../../events/producers/payment.producer.js';
 
 export class PaymentService implements IPaymentService {
   constructor(
@@ -27,11 +28,22 @@ export class PaymentService implements IPaymentService {
 
   async create(data: any, userId?: string) {
     const payment = await this.repo.create({ ...data, status: data.status ?? 'COMPLETED' });
+
     if (userId) {
       this.autoGenerateInvoice(payment, userId).catch(err =>
         console.error('[PaymentService] Auto-invoice error:', err),
       );
     }
+
+    // Publica el evento — booking.consumer cambia reserva a CONFIRMED
+    publishPaymentConfirmed({
+      paymentId:     payment.id,
+      reservationId: payment.reservationId,
+      userId:        userId ?? '',
+      amount:        Number(payment.amount),
+      provider:      payment.provider,
+    });
+
     return payment;
   }
 
