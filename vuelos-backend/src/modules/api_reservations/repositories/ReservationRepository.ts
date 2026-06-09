@@ -135,7 +135,7 @@ export class ReservationRepository implements IReservationRepository {
   }
 
   async cancelAndRestoreSeats(id: string, flightClassId: string, passengerCount: number): Promise<void> {
-    // Update booking status in bookingDb
+    // Actualiza estado en bookingDb
     await this.db.$transaction(async (tx: any) => {
       await tx.reservation.update({ where: { id }, data: { status: 'CANCELLED' } });
       await tx.reservationPassenger.updateMany({
@@ -144,13 +144,8 @@ export class ReservationRepository implements IReservationRepository {
       });
     }, { maxWait: 15000, timeout: 25000 });
 
-    // Restore seats in catalogDb
-    if (flightClassId && passengerCount > 0) {
-      await this.catalogDb.flightClass.update({
-        where: { id: flightClassId },
-        data: { availableSeats: { increment: passengerCount } },
-      });
-    }
+    // La restauración de asientos en catalogDb la maneja catalog.consumer
+    // via el evento booking.cancelled publicado en ReservationService.cancel()
   }
 
   async update(id: string, data: any): Promise<Reservation> {
