@@ -72,6 +72,10 @@ import { validateJwtConfig }                 from './shared/security/jwt.config.
 import { startGrpcServer }                   from './grpc/grpc.server.js';
 import { registerRoutes, getGatewayStats }  from './shared/gateway.js';
 import { connectRabbitMQ, closeRabbitMQ }   from './events/rabbitmq/connection.js';
+import { startAuditConsumer }               from './events/consumers/audit.consumer.js';
+import { startCatalogConsumer }             from './events/consumers/catalog.consumer.js';
+import { startBookingConsumer }             from './events/consumers/booking.consumer.js';
+import { startPaymentsConsumer }            from './events/consumers/payments.consumer.js';
 
 // ============================================================
 //                        APP SETUP
@@ -394,9 +398,18 @@ async function startServer() {
 
     // ── RabbitMQ — Event Bus ─────────────────────────────────
     if (process.env.RABBITMQ_URL) {
-      await connectRabbitMQ().catch((err: Error) =>
-        console.warn('⚠️  RabbitMQ no disponible:', err.message, '— el servidor REST sigue activo.')
-      );
+      try {
+        await connectRabbitMQ();
+        // Arranca los 4 consumers en paralelo
+        await Promise.all([
+          startAuditConsumer(),
+          startCatalogConsumer(),
+          startBookingConsumer(),
+          startPaymentsConsumer(),
+        ]);
+      } catch (err: any) {
+        console.warn('⚠️  RabbitMQ no disponible:', err.message, '— el servidor REST sigue activo.');
+      }
     } else {
       console.warn('⚠️  RABBITMQ_URL no configurado — Event Bus desactivado');
     }
