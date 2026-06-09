@@ -1,4 +1,34 @@
 services:
+  # API GATEWAY — GraphQL + Proxy REST + Circuit Breaker
+  - type: web
+    name: aerocore-gateway
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: api-gateway
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://aerocore-frontend-issd.onrender.com
+      # Todos apuntan al mismo vuelos-backend (monolito)
+      - key: AUTH_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: CATALOG_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: FLIGHTS_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: BOOKING_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: PAYMENTS_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: ADMIN_SERVICE_URL
+        value: https://aerocore-api-issd.onrender.com
+      - key: RABBITMQ_URL
+        sync: false
+
   # BACKEND — Node.js API (base de datos en Supabase)
   - type: web
     name: aerocore-api
@@ -31,6 +61,8 @@ services:
         value: 2h
       - key: FRONTEND_URL
         value: https://aerocore-frontend-issd.onrender.com
+      - key: RABBITMQ_URL
+        sync: false
 
   # FRONTEND — Vue / Vite Static Site
   - type: web

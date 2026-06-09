@@ -71,6 +71,7 @@ import { errorHandler }                      from './shared/middlewares/error.mi
 import { validateJwtConfig }                 from './shared/security/jwt.config.js';
 import { startGrpcServer }                   from './grpc/grpc.server.js';
 import { registerRoutes, getGatewayStats }  from './shared/gateway.js';
+import { connectRabbitMQ, closeRabbitMQ }   from './events/rabbitmq/connection.js';
 
 // ============================================================
 //                        APP SETUP
@@ -391,6 +392,15 @@ async function startServer() {
     await connectToDatabaseWithRetry();
     console.log('✅ Conectado a PostgreSQL');
 
+    // ── RabbitMQ — Event Bus ─────────────────────────────────
+    if (process.env.RABBITMQ_URL) {
+      await connectRabbitMQ().catch((err: Error) =>
+        console.warn('⚠️  RabbitMQ no disponible:', err.message, '— el servidor REST sigue activo.')
+      );
+    } else {
+      console.warn('⚠️  RABBITMQ_URL no configurado — Event Bus desactivado');
+    }
+
     const GRPC_PORT = Number(process.env.GRPC_PORT) || 50051;
     try {
       grpcServer = await startGrpcServer(GRPC_PORT);
@@ -447,6 +457,7 @@ async function stopGrpcServer() {
 
 async function shutdown() {
   await stopGrpcServer();
+  await closeRabbitMQ();
   await prisma.$disconnect();
   process.exit(0);
 }
