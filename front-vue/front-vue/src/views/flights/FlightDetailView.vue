@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { flightsService } from '../../services/flights.service';
 import type { Flight } from '../../models/domain';
@@ -11,6 +11,10 @@ const router = useRouter();
 const loading = ref(true);
 const flight = ref<Flight | null>(null);
 
+let sseSource: EventSource | null = null;
+
+const API_BASE = import.meta.env.VITE_API_URL || 'https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza';
+
 onMounted(async () => {
   const id = route.params.id as string;
   try {
@@ -21,6 +25,26 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
+  // Suscripción SSE — actualiza asientos disponibles sin refrescar
+  sseSource = new EventSource(`${API_BASE}/flights/${id}/availability/stream`);
+  sseSource.onmessage = (event) => {
+    try {
+      const update = JSON.parse(event.data) as { flightClassId: string; availableSeats: number };
+      const classes = (flight.value as any)?.flightClasses ?? [];
+      const fc = classes.find((c: any) => c.id === update.flightClassId);
+      if (fc) fc.availableSeats = update.availableSeats;
+    } catch { /* ignorar mensajes malformados */ }
+  };
+  sseSource.onerror = () => {
+    sseSource?.close();
+    sseSource = null;
+  };
+});
+
+onUnmounted(() => {
+  sseSource?.close();
+  sseSource = null;
 });
 
 function depTime(f: Flight) {

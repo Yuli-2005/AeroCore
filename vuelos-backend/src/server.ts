@@ -71,11 +71,14 @@ import { errorHandler }                      from './shared/middlewares/error.mi
 import { validateJwtConfig }                 from './shared/security/jwt.config.js';
 import { startGrpcServer }                   from './grpc/grpc.server.js';
 import { registerRoutes, getGatewayStats }  from './shared/gateway.js';
-import { connectRabbitMQ, closeRabbitMQ }   from './events/rabbitmq/connection.js';
+import { connectRabbitMQ, closeRabbitMQ, getChannel } from './events/rabbitmq/connection.js';
 import { startAuditConsumer }               from './events/consumers/audit.consumer.js';
 import { startCatalogConsumer }             from './events/consumers/catalog.consumer.js';
 import { startBookingConsumer }             from './events/consumers/booking.consumer.js';
 import { startPaymentsConsumer }            from './events/consumers/payments.consumer.js';
+import { availabilityEmitter }             from './events/availability.emitter.js';
+import { getBusMetrics }                   from './events/bus.metrics.js';
+import { getProcessedCount }               from './events/idempotency.js';
 
 // ============================================================
 //                        APP SETUP
@@ -251,6 +254,80 @@ app.get(['/', '/api/v1', '/api/v1/yulieth-galarza'], (_req, res) => {
       tables: 22,
       architecture: 'Clean Architecture (Domain / Application / Infrastructure / Presentation)'
     }
+  });
+});
+
+// ============================================================
+//   SSE — disponibilidad de vuelos en tiempo real (sin refresh)
+// ============================================================
+
+const SSE_PATHS = [
+  '/api/v1/flights/:id/availability/stream',
+  `/api/v1/yulieth-galarza/flights/:id/availability/stream`,
+];
+
+app.get(SSE_PATHS, (req, res) => {
+  res.setHeader('Content-Type',  'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection',    'keep-alive');
+  res.flushHeaders();
+
+  const flightId = req.params.id;
+  res.write(':ok\n\n');
+
+  const onUpdate = (u: { flightClassId: string; flightId: string; availableSeats: number }) => {
+    if (u.flightId === flightId) {
+      res.write(`data: ${JSON.stringify(u)}\n\n`);
+    }
+  };
+
+  availabilityEmitter.on('update', onUpdate);
+
+  // Keep-alive cada 25 s para que Render no cierre la conexión idle
+  const keepAlive = setInterval(() => {
+    try { res.write(':ping\n\n'); } catch { clearInterval(keepAlive); }
+  }, 25_000);
+
+  req.on('close', () => {
+    clearInterval(keepAlive);
+    availabilityEmitter.off('update', onUpdate);
+  });
+});
+
+// ============================================================
+//   OBSERVABILIDAD — estado del Event Bus en tiempo real
+// ============================================================
+
+const HEALTH_BUS_PATHS = ['/api/v1/health/bus', '/api/v1/yulieth-galarza/health/bus'];
+
+app.get(HEALTH_BUS_PATHS, (_req, res) => {
+  const channel = (() => { try { return getChannel(); } catch { return null; } })();
+  const metrics = getBusMetrics();
+
+  res.json({
+    success: true,
+    data: {
+      rabbitmq: {
+        connected:      channel !== null,
+        exchange:       'vuelos.events',
+        queues: [
+          'catalog.seat-queue',
+          'booking.status-queue',
+          'payments.invoice-queue',
+          'audit.log-queue',
+          'dlq.failed-queue',
+        ],
+      },
+      idempotency: {
+        cachedMessageIds: getProcessedCount(),
+        maxCacheSize:     10_000,
+      },
+      consumers:  metrics.consumers,
+      totals:     metrics.totals,
+      startedAt:  metrics.startedAt,
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp:  new Date().toISOString(),
+    },
   });
 });
 

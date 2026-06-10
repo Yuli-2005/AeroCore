@@ -34,7 +34,7 @@ export async function setupTopology(channel: Channel): Promise<void> {
   }> = [
     {
       name:    QUEUES.CATALOG_SEATS,
-      binding: 'booking.*',       // booking.created y booking.cancelled
+      binding: 'booking.cancelled', // solo cancelaciones — booking.created lo maneja ReservationRepository de forma síncrona
       dlq:     true,
       durable: true,
     },

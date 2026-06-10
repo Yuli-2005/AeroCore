@@ -140,11 +140,8 @@ export class ReservationService implements IReservationService {
       await this.reservationRepository.updateStatus(id, 'CANCELLED');
     }
 
-    if (promotionId) {
-      await this.promotionRepository.decrementUsage(promotionId);
-    }
-
-    // Publica el evento — catalog.consumer restaura los asientos
+    // Publica ANTES de decrementUsage — así los asientos siempre se restauran
+    // aunque la actualización de la promoción falle después
     publishBookingCancelled({
       reservationId:   id,
       reservationCode: reservation.reservationCode,
@@ -152,6 +149,10 @@ export class ReservationService implements IReservationService {
       passengerCount,
       promotionId:     promotionId ?? null,
     });
+
+    if (promotionId) {
+      await this.promotionRepository.decrementUsage(promotionId);
+    }
 
     return { cancelled: true, reservationCode: reservation.reservationCode };
   }

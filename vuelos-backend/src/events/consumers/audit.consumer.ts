@@ -3,6 +3,8 @@
 import { getChannel }  from '../rabbitmq/connection.js';
 import { QUEUES }      from '../rabbitmq/topology.js';
 import { identityDb }  from '../../shared/database/clients.js';
+import { isAlreadyProcessed, markAsProcessed } from '../idempotency.js';
+import { recordProcessed, recordDuplicate, recordError } from '../bus.metrics.js';
 
 export async function startAuditConsumer(): Promise<void> {
   const channel = getChannel();
@@ -17,6 +19,14 @@ export async function startAuditConsumer(): Promise<void> {
       const envelope = JSON.parse(msg.content.toString());
       const { eventType, source, occurredAt, data, messageId } = envelope;
 
+      // Idempotencia: descarta duplicados (evita entradas dobles en audit_logs)
+      if (messageId && isAlreadyProcessed(messageId)) {
+        console.log(`[audit.consumer] duplicado ignorado messageId=${messageId}`);
+        recordDuplicate('audit');
+        channel.ack(msg);
+        return;
+      }
+
       await identityDb.auditLog.create({
         data: {
           action:    eventType,
@@ -27,10 +37,13 @@ export async function startAuditConsumer(): Promise<void> {
         },
       });
 
-      channel.ack(msg); // confirma que se procesó correctamente
+      if (messageId) markAsProcessed(messageId);
+      recordProcessed('audit', eventType);
+      channel.ack(msg);
 
     } catch (err: any) {
       console.error('[audit.consumer] error:', err.message);
+      recordError('audit');
       // requeue: false → si falla, va al DLQ en vez de reintentar infinito
       channel.nack(msg, false, false);
     }

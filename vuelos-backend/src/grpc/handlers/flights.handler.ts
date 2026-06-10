@@ -2,6 +2,7 @@ import type { FlightService } from '../../modules/api_flights/services/FlightSer
 import type { FlightClassService } from '../../modules/api_flight_classes/services/FlightClassService.js';
 import { verifyServiceToken } from '../auth-helper.js';
 import { toGrpcError } from '../error-mapper.js';
+import { availabilityEmitter } from '../../events/availability.emitter.js';
 
 export function createFlightHandlers(
   flightService: FlightService,
@@ -43,6 +44,33 @@ export function createFlightHandlers(
       } catch (err) {
         callback(toGrpcError(err));
       }
+    },
+
+    // Server-streaming: emite cada vez que cambia la disponibilidad del vuelo
+    WatchFlightAvailability(call: any) {
+      const { flight_id } = call.request;
+
+      const onUpdate = (update: { flightClassId: string; flightId: string; availableSeats: number }) => {
+        if (update.flightId === flight_id) {
+          try {
+            call.write({
+              flight_class_id: update.flightClassId,
+              flight_id:       update.flightId,
+              available_seats: update.availableSeats,
+            });
+          } catch {
+            // el cliente ya desconectó
+          }
+        }
+      };
+
+      availabilityEmitter.on('update', onUpdate);
+
+      const cleanup = () => availabilityEmitter.off('update', onUpdate);
+      call.on('cancelled', cleanup);
+      call.on('error',     cleanup);
+      call.on('close',     cleanup);
+      call.on('end',       cleanup);
     },
   };
 }

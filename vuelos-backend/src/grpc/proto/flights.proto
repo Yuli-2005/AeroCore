@@ -62,10 +62,21 @@ message GetFlightAvailabilityResponse {
   repeated FlightClassInfo classes = 2;
 }
 
+message WatchFlightAvailabilityRequest {
+  string flight_id = 1;
+}
+
+message AvailabilityUpdate {
+  string flight_class_id = 1;
+  string flight_id       = 2;
+  int32  available_seats = 3;
+}
+
 // ── Servicio ──────────────────────────────────────────────────
 
 service FlightService {
-  rpc SearchFlights          (SearchFlightsRequest) returns (SearchFlightsResponse);
-  rpc GetFlight              (GetFlightRequest)     returns (GetFlightResponse);
-  rpc GetFlightAvailability  (GetFlightRequest)     returns (GetFlightAvailabilityResponse);
+  rpc SearchFlights           (SearchFlightsRequest)           returns (SearchFlightsResponse);
+  rpc GetFlight               (GetFlightRequest)               returns (GetFlightResponse);
+  rpc GetFlightAvailability   (GetFlightRequest)               returns (GetFlightAvailabilityResponse);
+  rpc WatchFlightAvailability (WatchFlightAvailabilityRequest) returns (stream AvailabilityUpdate);
 }
