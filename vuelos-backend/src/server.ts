@@ -46,7 +46,7 @@ import {
 // ── Routers ──────────────────────────────────────────────────
 import { createAuthRouter }                  from './modules/api_users/routes/auth.routes.js';
 import { createFlightRouter }                from './modules/api_flights/routes/flights.routes.js';
-import { createReservationRouter }           from './modules/api_reservations/routes/reservations.routes.js';
+import { createReservationRouter, createReservationV2Router } from './modules/api_reservations/routes/reservations.routes.js';
 import { createPromotionRouter }             from './modules/api_promotions/routes/promotions.routes.js';
 import { createAdminRouter }                 from './modules/api_admin/routes/admin.routes.js';
 import { createCountryRouter }               from './modules/api_countries/routes/countries.routes.js';
@@ -76,9 +76,12 @@ import { startAuditConsumer }               from './events/consumers/audit.consu
 import { startCatalogConsumer }             from './events/consumers/catalog.consumer.js';
 import { startBookingConsumer }             from './events/consumers/booking.consumer.js';
 import { startPaymentsConsumer }            from './events/consumers/payments.consumer.js';
+import { startGraphqlConsumer }             from './events/consumers/graphql.consumer.js';
 import { availabilityEmitter }             from './events/availability.emitter.js';
 import { getBusMetrics }                   from './events/bus.metrics.js';
 import { getProcessedCount }               from './events/idempotency.js';
+import { yoga }                            from './graphql/server.js';
+import { idempotencyKey }                  from './shared/middlewares/idempotency-key.middleware.js';
 
 // ============================================================
 //                        APP SETUP
@@ -457,6 +460,17 @@ app.get(['/api/v1/spec', `${PREFIX}/spec`], (_req, res) => {
   res.send(activeSpec);
 });
 
+// ── GraphQL — Subscription seatAvailabilityUpdated ───────────
+app.use(['/graphql', `${PREFIX}/graphql`], yoga as any);
+
+// ── API v2 — Reservas con Idempotency-Key ────────────────────
+const V2_PREFIX = '/api/v2/yulieth-galarza';
+app.use(
+  ['/api/v2/reservations', `${V2_PREFIX}/reservations`],
+  idempotencyKey,
+  createReservationV2Router(reservationController),
+);
+
 // ── 404 ──────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Ruta ${req.originalUrl} no encontrada` } });
@@ -477,12 +491,13 @@ async function startServer() {
     if (process.env.RABBITMQ_URL) {
       try {
         await connectRabbitMQ();
-        // Arranca los 4 consumers en paralelo
+        // Arranca los 5 consumers en paralelo
         await Promise.all([
           startAuditConsumer(),
           startCatalogConsumer(),
           startBookingConsumer(),
           startPaymentsConsumer(),
+          startGraphqlConsumer(),
         ]);
       } catch (err: any) {
         console.warn('⚠️  RabbitMQ no disponible:', err.message, '— el servidor REST sigue activo.');

@@ -11,6 +11,14 @@ function isUniqueSeatConflict(err: any) {
     || String(err?.message ?? '').includes('reservation_passengers_flight_class_seat_unique');
 }
 
+// Router v2: misma lógica que v1 pero el middleware Idempotency-Key
+// se inyecta desde fuera (server.ts) antes de montar este router.
+export function createReservationV2Router(controller: ReservationController): Router {
+  const router = Router();
+  router.post('/', authenticate, validate(CreateReservationSchema), controller.create);
+  return router;
+}
+
 export function createReservationRouter(controller: ReservationController, db: PrismaClient): Router {
   const router = Router();
   router.post('/',             authenticate, validate(CreateReservationSchema), controller.create);

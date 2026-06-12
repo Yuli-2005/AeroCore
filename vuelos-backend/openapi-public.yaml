@@ -21,9 +21,13 @@ info:
 
 servers:
   - url: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
-    description: Producción (Render)
+    description: Producción v1 (Render)
+  - url: https://aerocore-api-issd.onrender.com/api/v2/yulieth-galarza
+    description: Producción v2 — reservas con Idempotency-Key
   - url: http://localhost:3000/api/v1/yulieth-galarza
-    description: Desarrollo local
+    description: Desarrollo local v1
+  - url: http://localhost:3000/api/v2/yulieth-galarza
+    description: Desarrollo local v2
 
 security: []
 
@@ -422,6 +426,90 @@ paths:
                     properties:
                       data: { $ref: '#/components/schemas/Reservation' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: Sin disponibilidad de asientos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ── RESERVATIONS v2 (Idempotency-Key) ───────────────────────
+  /v2/reservations:
+    post:
+      tags: [Reservations]
+      summary: Crear reserva (v2 — idempotente)
+      description: |
+        Igual que `POST /reservations` pero **requiere** el header `Idempotency-Key`.
+
+        ### ¿Para qué sirve?
+        Si la red falla y el cliente reintenta la misma petición con el mismo `Idempotency-Key`,
+        el servidor devuelve la respuesta original **sin crear una segunda reserva**.
+
+        ### Cómo usarlo
+        1. Genera un UUID único **por intento de reserva** (no por sesión).
+        2. Envíalo en el header `Idempotency-Key`.
+        3. Si recibes timeout o error de red, reintenta con el **mismo UUID** — obtendrás la misma respuesta.
+
+        > ⚠️ Usa el servidor **v2** (`/api/v2/yulieth-galarza`) para este endpoint.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+          description: UUID único por intento. Reintentar con el mismo UUID devuelve la respuesta cacheada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flightClassId, passengers]
+              properties:
+                flightClassId:
+                  type: string
+                  example: "cmpizkajw0019ru3prrxm9wmc"
+                passengers:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [firstName, lastName, documentNumber]
+                    properties:
+                      firstName:      { type: string, example: "Juan" }
+                      lastName:       { type: string, example: "Pérez" }
+                      documentNumber: { type: string, example: "1234567890" }
+                      seatNumber:     { type: string, nullable: true, example: "14C" }
+                promotionCode: { type: string, example: "DESCUENTO10" }
+            example:
+              flightClassId: cmpizkajw0019ru3prrxm9wmc
+              passengers:
+                - firstName: Juan
+                  lastName: Pérez
+                  documentNumber: "1234567890"
+      responses:
+        '201':
+          description: Reserva creada exitosamente
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Reservation' }
+        '400':
+          description: Falta el header Idempotency-Key o datos inválidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                success: false
+                error:
+                  code: MISSING_IDEMPOTENCY_KEY
+                  message: El header Idempotency-Key es obligatorio en este endpoint.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Sin disponibilidad de asientos
