@@ -1,11 +1,24 @@
 openapi: 3.0.3
 
 info:
-  title: "Yulieth Galarza — Booking API (Integración)"
+  title: "AeroCore — API de Reservas de Vuelos"
   version: "1.0.0"
   description: |
-    API pública para que los módulos de otros equipos consulten vuelos y realicen reservas
-    desde el módulo de **Yulieth Galarza** — Integración de Sistemas 2026.
+    API pública de reservas de vuelos. Permite buscar vuelos, crear reservas, registrar
+    pagos, consultar facturas y gestionar el estado de los viajes.
+
+    ## Cómo integrar (paso a paso)
+
+    1. **Obtener aeropuertos** — `GET /airports` o busca por nombre/IATA con `GET /airports/search?q=UIO`
+    2. **Buscar vuelos** — `GET /flights/search?origin=UIO&destination=BOG&date=2026-05-23&passengers=1`
+    3. **Ver disponibilidad** — `GET /flights/{flightId}/availability` retorna clases, precios y asientos
+    4. **Validar promoción** *(opcional)* — `POST /promotions/validate` con `code` y `amount`
+    5. **Crear reserva** — `POST /reservations` con `flightClassId` y arreglo de `passengers`
+       - Para reintentos seguros usa `POST /v2/reservations` con header `Idempotency-Key: <uuid>`
+    6. **Registrar pago** — `POST /payments` con `reservationId`, `amount`, `provider` y `transactionId`
+       - La factura se genera automáticamente con IVA 15% de forma asíncrona
+    7. **Consultar factura** — `GET /invoices/by-payment/{paymentId}` *(puede tardar unos segundos)*
+    8. **Cancelar reserva** — `DELETE /reservations/{reservationId}` restaura los asientos automáticamente
 
     ## IDs de prueba (base de datos Supabase real)
 
@@ -17,7 +30,7 @@ info:
     | Código 10% descuento | `DESCUENTO10` |
     | Código $20 descuento fijo | `VIAJERO20` |
 
-    **Búsqueda de prueba:** `origin=UIO` · `destination=BOG` · `date=2026-05-23` · `passengers=1`
+    **Búsqueda de prueba:** `GET /flights/search?origin=UIO&destination=BOG&date=2026-05-23&passengers=1`
 
 servers:
   - url: https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza
@@ -146,6 +159,16 @@ components:
         provider:      { type: string, enum: [VISA, MASTERCARD, AMEX, PAYPAL, TRANSFER], example: "VISA" }
         transactionId: { type: string }
         status:        { type: string, enum: [PENDING, COMPLETED, FAILED, REFUNDED] }
+        createdAt:     { type: string, format: date-time }
+
+    Invoice:
+      type: object
+      properties:
+        id:            { type: string }
+        invoiceNumber: { type: string, example: "INV-0001" }
+        subtotal:      { type: number, example: 117.39 }
+        taxAmount:     { type: number, example: 17.61, description: "IVA 15%" }
+        total:         { type: number, example: 135.00 }
         createdAt:     { type: string, format: date-time }
 
   responses:
@@ -560,6 +583,31 @@ paths:
                       data: { $ref: '#/components/schemas/Reservation' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Reservations]
+      summary: Cancelar reserva
+      description: |
+        Cancela la reserva en una transacción atómica:
+        - Estado → `CANCELLED`
+        - Restaura `availableSeats` en la clase de vuelo
+        - Revierte el uso de la promoción si aplica
+      responses:
+        '200':
+          description: Reserva cancelada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          cancelled:       { type: boolean, example: true }
+                          reservationCode: { type: string, example: "RES-ABCD1234" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /reservations/{reservationId}/cancel:
     parameters:
@@ -668,6 +716,88 @@ paths:
                         items: { $ref: '#/components/schemas/Payment' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  # ── SEAT ASSIGNMENT ──────────────────────────────────────────
+  /reservations/{reservationId}/passengers/{passengerId}/seat:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID de la reserva
+      - name: passengerId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del pasajero
+    patch:
+      tags: [Reservations]
+      summary: Asignar asiento a un pasajero
+      description: Asigna o actualiza el número de asiento de un pasajero en la reserva.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seatNumber]
+              properties:
+                seatNumber: { type: string, example: "14C" }
+            example:
+              seatNumber: "14C"
+      responses:
+        '200':
+          description: Asiento asignado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Passenger' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ── INVOICES ─────────────────────────────────────────────────
+  /invoices/by-payment/{paymentId}:
+    parameters:
+      - name: paymentId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del pago
+    get:
+      tags: [Invoices]
+      summary: Factura de un pago
+      description: |
+        Retorna la factura generada para el pago indicado.
+
+        La factura se genera de forma asíncrona tras registrar el pago (`POST /payments`).
+        Si aún no está disponible, el endpoint retorna 404 — reintenta en unos segundos.
+      responses:
+        '200':
+          description: Factura encontrada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Invoice' }
+              example:
+                success: true
+                data:
+                  id: "inv_abc123"
+                  invoiceNumber: "INV-0042"
+                  subtotal: 117.39
+                  taxAmount: 17.61
+                  total: 135.00
+                  createdAt: "2026-05-23T14:30:00.000Z"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   # ── PROMOTIONS ───────────────────────────────────────────────
   /promotions/validate:
     post:
@@ -743,5 +873,7 @@ tags:
     description: Creación, consulta y cancelación de reservas
   - name: Payments
     description: Registro de pagos
+  - name: Invoices
+    description: Consulta de facturas generadas automáticamente tras el pago
   - name: Promotions
     description: Validación de códigos de descuento

@@ -78,3 +78,15 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  # FLUTTER WEB — Pre-compilado localmente (Render no tiene Flutter SDK)
+  - type: web
+    name: aerocore-flutter
+    runtime: static
+    rootDir: front_flutter/build/web
+    buildCommand: ""
+    staticPublishPath: .
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

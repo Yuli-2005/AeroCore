@@ -21,6 +21,11 @@ dist/
 build/
 .vite/
 
+# Permitir el build web de Flutter para deploy en Render
+!front_flutter/build/
+!front_flutter/build/web/
+!front_flutter/build/web/**
+
 # Java / Maven
 target/
 *.class
