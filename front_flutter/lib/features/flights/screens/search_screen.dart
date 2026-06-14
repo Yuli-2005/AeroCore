@@ -27,6 +27,9 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _showOriginDrop = false;
   bool _showDestDrop   = false;
 
+  // Rutas destacadas cargadas desde Supabase
+  List<Map<String, dynamic>> _featuredRoutes = [];
+
   final _cabins = {
     'ECONOMY':        'Económica',
     'PREMIUM_ECONOMY': 'Premium Economy',
@@ -34,10 +37,27 @@ class _SearchScreenState extends State<SearchScreen> {
     'FIRST':          'Primera clase',
   };
 
+  // Pares de rutas a mostrar (sin fecha ni precio — se obtienen del backend)
+  static const _routePairs = [
+    ('GYE', 'Guayaquil', 'UIO', 'Quito'),
+    ('UIO', 'Quito',     'GYE', 'Guayaquil'),
+    ('UIO', 'Quito',     'BOG', 'Bogotá'),
+    ('BOG', 'Bogotá',    'UIO', 'Quito'),
+    ('GYE', 'Guayaquil', 'BOG', 'Bogotá'),
+    ('UIO', 'Quito',     'LIM', 'Lima'),
+  ];
+
+  // Fechas candidatas donde el backend tiene vuelos demo
+  static const _candidateDates = [
+    '2026-05-25', '2026-05-23', '2026-05-24',
+    '2026-06-14', '2026-06-15', '2026-07-01',
+  ];
+
   @override
   void initState() {
     super.initState();
     _loadAirports();
+    _loadFeaturedRoutes();
   }
 
   Future<void> _loadAirports() async {
@@ -45,6 +65,37 @@ class _SearchScreenState extends State<SearchScreen> {
       final res = await dio.get('/airports');
       setState(() => _airports = res.data['data'] ?? []);
     } catch (_) {}
+  }
+
+  Future<void> _loadFeaturedRoutes() async {
+    final results = <Map<String, dynamic>>[];
+    for (final pair in _routePairs) {
+      for (final date in _candidateDates) {
+        try {
+          final res = await dio.get('/flights/search', queryParameters: {
+            'origin': pair.$1, 'destination': pair.$3,
+            'date': date, 'passengers': 1,
+          });
+          final flights = res.data['data'] as List? ?? [];
+          if (flights.isNotEmpty) {
+            final f = flights[0];
+            final classes = f['flightClasses'] as List? ?? [];
+            double minPrice = 0;
+            for (final c in classes) {
+              final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
+              if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
+            }
+            results.add({
+              'oCode': pair.$1, 'oCity': pair.$2,
+              'dCode': pair.$3, 'dCity': pair.$4,
+              'date': date, 'price': minPrice,
+            });
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+    if (mounted) setState(() => _featuredRoutes = results);
   }
 
   List<dynamic> _filter(String q) {
@@ -444,17 +495,8 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  // ── Rutas populares (chips) ───────────────────────────────
-  static const _popularRoutes = [
-    ('GYE', 'Guayaquil', 'UIO', 'Quito',    50.0),
-    ('UIO', 'Quito',     'GYE', 'Guayaquil', 55.0),
-    ('UIO', 'Quito',     'BOG', 'Bogotá',   100.0),
-    ('BOG', 'Bogotá',    'UIO', 'Quito',    100.0),
-    ('GYE', 'Guayaquil', 'BOG', 'Bogotá',   150.0),
-    ('UIO', 'Quito',     'LIM', 'Lima',     210.0),
-  ];
-
-  void _quickSelect(String oCode, String oCity, String dCode, String dCity) {
+  // ── Selección rápida de ruta ──────────────────────────────
+  void _quickSelect(String oCode, String oCity, String dCode, String dCity, {String? date}) {
     final oAp = _airports.where((a) => a['iataCode'] == oCode).firstOrNull;
     final dAp = _airports.where((a) => a['iataCode'] == dCode).firstOrNull;
     setState(() {
@@ -464,24 +506,52 @@ class _SearchScreenState extends State<SearchScreen> {
       _destCode = dCode;
       _showOriginDrop = false;
       _showDestDrop   = false;
+      if (date != null) {
+        final p = date.split('-');
+        _date = DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+      }
     });
+    if (date != null) _search();
   }
 
-  Widget _popularChips() => Wrap(
-    spacing: 8, runSpacing: 8,
-    children: _popularRoutes.map((r) {
-      return ActionChip(
-        backgroundColor: Colors.white.withValues(alpha: 0.18),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-        label: Text(
-          '${r.$1} → ${r.$3}  desde \$${r.$5.toInt()}',
-          style: const TextStyle(color: Colors.white, fontSize: 12)),
-        onPressed: () => _quickSelect(r.$1, r.$2, r.$3, r.$4),
-      );
-    }).toList(),
-  );
+  // ── Chips de rutas (usa datos de Supabase si ya cargaron) ─
+  Widget _popularChips() {
+    final routes = _featuredRoutes.isNotEmpty
+        ? _featuredRoutes
+        : _routePairs.map((r) => {'oCode': r.$1, 'oCity': r.$2, 'dCode': r.$3, 'dCity': r.$4, 'price': 0.0, 'date': null}).toList();
+    return Wrap(
+      spacing: 8, runSpacing: 8,
+      children: routes.map((r) {
+        final price = (r['price'] as double?) ?? 0;
+        return ActionChip(
+          backgroundColor: Colors.white,
+          side: BorderSide.none,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          label: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(r['oCode'] as String, style: const TextStyle(
+              color: Color(0xFF4F46E5), fontSize: 12, fontWeight: FontWeight.w700)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Icon(Icons.arrow_forward, size: 12, color: Color(0xFF94A3B8))),
+            Text(r['dCode'] as String, style: const TextStyle(
+              color: Color(0xFF4F46E5), fontSize: 12, fontWeight: FontWeight.w700)),
+            if (price > 0) ...[
+              const SizedBox(width: 6),
+              Text('desde \$${price.toInt()}', style: const TextStyle(
+                color: Color(0xFF64748B), fontSize: 12)),
+            ],
+          ]),
+          onPressed: () => _quickSelect(
+            r['oCode'] as String, r['oCity'] as String,
+            r['dCode'] as String, r['dCity'] as String,
+            date: r['date'] as String?,
+          ),
+        );
+      }).toList(),
+    );
+  }
 
-  // ── Ofertas recomendadas ──────────────────────────────────
+  // ── Ofertas recomendadas (datos reales de Supabase) ───────
   Widget _offersSection() {
     final gradients = [
       [const Color(0xFF10B981), const Color(0xFF059669)],
@@ -491,6 +561,11 @@ class _SearchScreenState extends State<SearchScreen> {
       [const Color(0xFF7C3AED), const Color(0xFF6D28D9)],
       [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
     ];
+
+    final routes = _featuredRoutes.isNotEmpty
+        ? _featuredRoutes
+        : _routePairs.map((r) => {'oCode': r.$1, 'oCity': r.$2, 'dCode': r.$3, 'dCity': r.$4, 'price': 0.0, 'date': null}).toList();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
       child: Column(
@@ -502,54 +577,65 @@ class _SearchScreenState extends State<SearchScreen> {
           const Text('Rutas reales disponibles en la base de datos',
             style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
           const SizedBox(height: 24),
-          LayoutBuilder(builder: (_, c) {
-            final cols = c.maxWidth > 800 ? 3 : c.maxWidth > 500 ? 2 : 1;
-            final rows = <Widget>[];
-            for (var i = 0; i < _popularRoutes.length; i += cols) {
-              final rowItems = <Widget>[];
-              for (var j = i; j < i + cols && j < _popularRoutes.length; j++) {
-                final r = _popularRoutes[j];
-                final g = gradients[j % gradients.length];
-                rowItems.add(Expanded(child: GestureDetector(
-                  onTap: () => _quickSelect(r.$1, r.$2, r.$3, r.$4),
-                  child: Container(
-                    margin: const EdgeInsets.all(6),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        colors: g),
-                      borderRadius: BorderRadius.circular(16),
+          if (_featuredRoutes.isEmpty)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ))
+          else
+            LayoutBuilder(builder: (_, c) {
+              final cols = c.maxWidth > 800 ? 3 : c.maxWidth > 500 ? 2 : 1;
+              final rows = <Widget>[];
+              for (var i = 0; i < routes.length; i += cols) {
+                final rowItems = <Widget>[];
+                for (var j = i; j < i + cols && j < routes.length; j++) {
+                  final r = routes[j];
+                  final price = (r['price'] as double?) ?? 0;
+                  final g = gradients[j % gradients.length];
+                  rowItems.add(Expanded(child: GestureDetector(
+                    onTap: () => _quickSelect(
+                      r['oCode'] as String, r['oCity'] as String,
+                      r['dCode'] as String, r['dCity'] as String,
+                      date: r['date'] as String?,
                     ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Text(r.$1, style: const TextStyle(
-                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(Icons.arrow_forward, color: Colors.white, size: 18)),
-                        Text(r.$3, style: const TextStyle(
-                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                    child: Container(
+                      margin: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: g),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          Text(r['oCode'] as String, style: const TextStyle(
+                            color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(Icons.arrow_forward, color: Colors.white, size: 18)),
+                          Text(r['dCode'] as String, style: const TextStyle(
+                            color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(r['oCity'] as String, style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
+                        const SizedBox(height: 16),
+                        Text('desde', style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+                        Text(price > 0 ? '\$${price.toInt()}' : '---',
+                          style: const TextStyle(
+                            color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
+                        Text('por persona · ida', style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
                       ]),
-                      const SizedBox(height: 4),
-                      Text(r.$2, style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
-                      const SizedBox(height: 16),
-                      Text('desde', style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-                      Text('\$${r.$5.toInt()}',
-                        style: const TextStyle(
-                          color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
-                      Text('por persona · ida', style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
-                    ]),
-                  ),
-                )));
+                    ),
+                  )));
+                }
+                rows.add(Row(children: rowItems));
               }
-              rows.add(Row(children: rowItems));
-            }
-            return Column(children: rows);
-          }),
+              return Column(children: rows);
+            }),
         ],
       ),
     );
@@ -698,8 +784,8 @@ class _FlightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dep     = flight['departureTime'] as String? ?? '';
-    final arr     = flight['arrivalTime']   as String? ?? '';
+    final dep = flight['departureDateTime'] as String? ?? flight['departureTime'] as String? ?? '';
+    final arr = flight['arrivalDateTime']   as String? ?? flight['arrivalTime']   as String? ?? '';
     final origin  = flight['originAirport']?['iataCode'] ?? '';
     final dest    = flight['destinationAirport']?['iataCode'] ?? '';
     final origCity = flight['originAirport']?['city']?['name'] ?? '';
@@ -769,7 +855,7 @@ class _FlightCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: classes.map<Widget>((c) {
-                final price = (c['price'] ?? 0).toDouble();
+                final price = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
                 final seats = c['availableSeats'] ?? 0;
                 final cabin = c['cabinClass'] as String? ?? '';
                 final noSeats = seats == 0;

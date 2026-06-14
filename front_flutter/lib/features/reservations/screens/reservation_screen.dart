@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -105,28 +106,37 @@ class _ReservationScreenState extends State<ReservationScreen> {
     }
     setState(() { _paying = true; _payError = null; });
     try {
-      // 1. Crear reserva
-      final resRes = await dio.post('/reservations', data: {
-        'flightClassId': widget.flightClassId,
-        'passengers': _paxControllers.map((p) => {
-          'firstName':      p['firstName']!.text.trim(),
-          'lastName':       p['lastName']!.text.trim(),
-          'documentNumber': p['documentNumber']!.text.trim(),
-        }).toList(),
-        if (_promoCtrl.text.isNotEmpty) 'promotionCode': _promoCtrl.text.trim(),
-      });
-      _reservation = Reservation.fromJson(resRes.data['data']);
+      // 1. Crear reserva (solo si aún no existe)
+      if (_reservation == null) {
+        final resRes = await dio.post('/reservations', data: {
+          'flightClassId': widget.flightClassId,
+          'passengers': _paxControllers.map((p) => {
+            'firstName':      p['firstName']!.text.trim(),
+            'lastName':       p['lastName']!.text.trim(),
+            'documentNumber': p['documentNumber']!.text.trim(),
+          }).toList(),
+          if (_promoCtrl.text.isNotEmpty) 'promotionCode': _promoCtrl.text.trim(),
+        });
+        _reservation = Reservation.fromJson(resRes.data['data']);
+      }
 
-      // 2. Crear pago
+      // 2. Registrar pago
+      final amount = double.parse(_total.toStringAsFixed(2));
       await dio.post('/payments', data: {
         'reservationId': _reservation!.id,
-        'amount':        _total,
+        'amount':        amount,
         'provider':      _provider,
         'transactionId': 'TXN-${DateTime.now().millisecondsSinceEpoch}',
+        'status':        'COMPLETED',
       });
       setState(() { _step = 2; _currentPax = 0; });
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?['message']
+               ?? e.response?.data?['message']
+               ?? 'Error al procesar el pago (${e.response?.statusCode})';
+      setState(() => _payError = msg.toString());
     } catch (e) {
-      setState(() => _payError = 'Error al procesar el pago. Intenta de nuevo.');
+      setState(() => _payError = e.toString());
     } finally {
       setState(() => _paying = false);
     }
@@ -350,103 +360,381 @@ class _ReservationScreenState extends State<ReservationScreen> {
   // ── PASO 2: Pago ──────────────────────────────────────────
   bool _showCardBack = false;
 
-  Widget _step2Payment() {
-    final providers = ['VISA', 'MASTERCARD', 'AMEX', 'PAYPAL'];
-    final providerColors = {
-      'VISA':       const Color(0xFF1A1F71),
-      'MASTERCARD': const Color(0xFFEB001B),
-      'AMEX':       const Color(0xFF007BC1),
-      'PAYPAL':     const Color(0xFF003087),
-    };
-    final cardColor = providerColors[_provider]!;
+  Widget _step2Payment() => LayoutBuilder(
+    builder: (context, constraints) =>
+        constraints.maxWidth > 700 ? _paymentWide() : _paymentNarrow(),
+  );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Tarjeta 3D con flip animado
-          GestureDetector(
-            onTap: () => setState(() => _showCardBack = !_showCardBack),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              transitionBuilder: (child, anim) {
-                final rotate = Tween(begin: 0.0, end: 1.0).animate(anim);
-                return AnimatedBuilder(
-                  animation: rotate,
-                  child: child,
-                  builder: (_, c) => Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..setEntry(3, 2, 0.001)
-                      ..rotateY(3.14 * rotate.value),
-                    child: c,
-                  ),
-                );
-              },
-              child: _showCardBack
-                  ? _cardBack(cardColor)
-                  : _cardFront(cardColor),
+  Widget _paymentWide() => Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      // Panel izquierdo — tarjeta + resumen
+      Expanded(
+        flex: 5,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF312E81), Color(0xFF4C1D95), Color(0xFF1E1B4B)],
             ),
           ),
-          const SizedBox(height: 8),
-          Center(child: Text('Toca la tarjeta para ver el reverso',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500))),
-          const SizedBox(height: 20),
-          // Proveedor
-          const Text('Método de pago', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          GridView.count(
-            shrinkWrap: true, crossAxisCount: 4, childAspectRatio: 2.2,
-            crossAxisSpacing: 8, mainAxisSpacing: 8,
-            physics: const NeverScrollableScrollPhysics(),
-            children: providers.map((p) => GestureDetector(
-              onTap: () => setState(() => _provider = p),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: _provider == p ? AppColors.primary : const Color(0xFFE2E8F0),
-                    width: _provider == p ? 2 : 1),
-                  borderRadius: BorderRadius.circular(10),
-                  color: _provider == p ? const Color(0xFFEFF6FF) : Colors.white,
-                ),
-                child: Center(child: Text(p, style: TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700,
-                  color: _provider == p ? AppColors.primary : const Color(0xFF475569)))),
-              ),
-            )).toList(),
+          padding: const EdgeInsets.fromLTRB(28, 40, 28, 28),
+          child: SingleChildScrollView(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              _payCard(),
+              const SizedBox(height: 6),
+              Center(child: Text('Toca para ver el CVV',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11))),
+              const SizedBox(height: 28),
+              _reservationSummaryDark(),
+            ]),
           ),
-          const SizedBox(height: 16),
-          // Campos de tarjeta
-          _fieldListen('Nombre del titular', _cardNameCtrl, (v) => setState(() {})),
-          const SizedBox(height: 12),
-          _fieldListen('Número de tarjeta', _cardNumberCtrl, (v) {
-            setState(() {});
-          }, inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            _CardNumberFormatter(),
-          ], keyboardType: TextInputType.number, maxLength: 19),
-          const SizedBox(height: 12),
+        ),
+      ),
+      // Panel derecho — formulario
+      Expanded(
+        flex: 6,
+        child: Container(
+          color: Colors.white,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: _paymentFormContent(),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _paymentNarrow() => SingleChildScrollView(
+    padding: const EdgeInsets.all(20),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _payCard(),
+      const SizedBox(height: 8),
+      Center(child: Text('Toca para ver el CVV',
+        style: TextStyle(fontSize: 11, color: Colors.grey.shade500))),
+      const SizedBox(height: 20),
+      _paymentFormContent(),
+    ]),
+  );
+
+  Widget _payCard() => GestureDetector(
+    onTap: () => setState(() => _showCardBack = !_showCardBack),
+    child: AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      transitionBuilder: (child, anim) => AnimatedBuilder(
+        animation: anim,
+        child: child,
+        builder: (_, c) => Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(3.14 * (1 - anim.value)),
+          child: c,
+        ),
+      ),
+      child: _showCardBack
+          ? _cardBackPurple(key: const ValueKey('back'))
+          : _cardFrontPurple(key: const ValueKey('front')),
+    ),
+  );
+
+  Widget _cardFrontPurple({Key? key}) => Container(
+    key: key,
+    height: 190,
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFF9333EA)],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(
+        color: const Color(0xFF4F46E5).withValues(alpha: 0.5),
+        blurRadius: 28, offset: const Offset(0, 12))],
+    ),
+    padding: const EdgeInsets.all(22),
+    child: Stack(children: [
+      Positioned(top: -20, right: -20, child: Container(
+        width: 130, height: 130,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.06)))),
+      Positioned(bottom: -30, left: 50, child: Container(
+        width: 90, height: 90,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.04)))),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           Row(children: [
-            Expanded(child: _fieldListen('MM/AA', _expiryCtrl, (v) => setState(() {}),
-              inputFormatters: [_ExpiryFormatter()], maxLength: 5,
-              keyboardType: TextInputType.number)),
-            const SizedBox(width: 12),
-            Expanded(child: _field('CVV', _cvvCtrl,
-              obscureText: true, maxLength: 4,
-              keyboardType: TextInputType.number)),
+            Container(
+              width: 36, height: 28,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFD4AF37), Color(0xFFFFD700)]),
+                borderRadius: BorderRadius.circular(5)),
+              child: const Icon(Icons.grid_view, color: Colors.white, size: 14)),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6)),
+              child: Text(_provider, style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w900,
+                fontSize: 12, letterSpacing: 1.5))),
           ]),
-          const SizedBox(height: 16),
-          _priceSummary(),
-          const SizedBox(height: 8),
-          if (_payError != null) _errorBox(_payError!),
-          const SizedBox(height: 8),
-          GradientButton(text: 'Confirmar y pagar', icon: Icons.lock_outline,
-            onPressed: _submitPayment, loading: _paying),
+          Text(_cardNumberCtrl.text.isEmpty ? '•••• •••• •••• ••••' : _cardNumberCtrl.text,
+            style: const TextStyle(color: Colors.white, fontSize: 18,
+              fontFamily: 'monospace', letterSpacing: 3, fontWeight: FontWeight.w500)),
+          Row(children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('TITULAR', style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6), fontSize: 9, letterSpacing: 2)),
+              const SizedBox(height: 2),
+              Text(_cardNameCtrl.text.isEmpty ? 'TU NOMBRE' : _cardNameCtrl.text.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+            ]),
+            const Spacer(),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('VENCE', style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6), fontSize: 9, letterSpacing: 2)),
+              const SizedBox(height: 2),
+              Text(_expiryCtrl.text.isEmpty ? 'MM/AA' : _expiryCtrl.text,
+                style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+            ]),
+          ]),
         ],
       ),
+    ]),
+  );
+
+  Widget _cardBackPurple({Key? key}) => Container(
+    key: key,
+    height: 190,
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topRight, end: Alignment.bottomLeft,
+        colors: [Color(0xFF9333EA), Color(0xFF7C3AED), Color(0xFF4F46E5)],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [BoxShadow(
+        color: const Color(0xFF4F46E5).withValues(alpha: 0.5),
+        blurRadius: 28, offset: const Offset(0, 12))],
+    ),
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Container(height: 44, color: Colors.black.withValues(alpha: 0.4)),
+      const SizedBox(height: 20),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(children: [
+          Expanded(child: Container(
+            height: 36,
+            color: Colors.white.withValues(alpha: 0.25),
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text('•' * _cvvCtrl.text.length,
+              style: const TextStyle(color: Colors.white, letterSpacing: 4, fontSize: 16)))),
+          const SizedBox(width: 12),
+          Container(
+            height: 36, width: 60,
+            color: Colors.white,
+            alignment: Alignment.center,
+            child: Text(_cvvCtrl.text.isEmpty ? 'CVV' : _cvvCtrl.text,
+              style: const TextStyle(fontWeight: FontWeight.w800,
+                color: Color(0xFF1E293B), fontSize: 14))),
+        ]),
+      ),
+    ]),
+  );
+
+  Widget _reservationSummaryDark() => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.15))),
+    child: Column(children: [
+      Row(children: [
+        const Icon(Icons.receipt_long_outlined, color: Colors.white, size: 16),
+        const SizedBox(width: 8),
+        const Text('Resumen de reserva', style: TextStyle(
+          color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+      ]),
+      const SizedBox(height: 14),
+      _darkRow('Pasajeros', '${_paxControllers.length}'),
+      _darkRow('Tarifa base', '\$${_subtotal.toStringAsFixed(2)}'),
+      if (_discount != null && _discount! > 0)
+        _darkRow('Descuento', '-\$${_discount!.toStringAsFixed(2)}'),
+      _darkRow('IVA (15%)', '\$${_tax.toStringAsFixed(2)}'),
+      Divider(color: Colors.white.withValues(alpha: 0.2), height: 20),
+      _darkRow('TOTAL', '\$${_total.toStringAsFixed(2)}', bold: true),
+    ]),
+  );
+
+  Widget _darkRow(String label, String value, {bool bold = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(children: [
+      Text(label, style: TextStyle(
+        color: Colors.white.withValues(alpha: bold ? 1.0 : 0.7),
+        fontSize: bold ? 14 : 12,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.normal)),
+      const Spacer(),
+      Text(value, style: TextStyle(
+        color: Colors.white, fontSize: bold ? 17 : 13,
+        fontWeight: bold ? FontWeight.w900 : FontWeight.w600)),
+    ]),
+  );
+
+  Widget _paymentFormContent() {
+    final providers = [
+      ('VISA',       'VISA',   const Color(0xFF1A1F71), Icons.credit_card),
+      ('MASTERCARD', 'MC',     const Color(0xFFEB001B), Icons.credit_card),
+      ('AMEX',       'AMEX',   const Color(0xFF007BC1), Icons.credit_card),
+      ('PAYPAL',     'PAYPAL', const Color(0xFF003087), Icons.account_balance_wallet),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Título + badge seguridad
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          const Expanded(
+            child: Text('Información de Pago',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800,
+                color: Color(0xFF1E293B))),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFA7F3D0))),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.lock, size: 12, color: AppColors.emerald),
+              SizedBox(width: 4),
+              Text('Conexión Segura', style: TextStyle(
+                fontSize: 11, color: AppColors.emerald, fontWeight: FontWeight.w600)),
+            ])),
+        ]),
+        const SizedBox(height: 4),
+        const Text('Tus datos están protegidos con encriptación SSL',
+          style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+        const SizedBox(height: 24),
+
+        // Selector de método de pago
+        const Text('Método de pago',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+        const SizedBox(height: 10),
+        Row(children: providers.asMap().entries.map((e) {
+          final i = e.key; final p = e.value;
+          final isSel = _provider == p.$1;
+          return Expanded(child: GestureDetector(
+            onTap: () => setState(() => _provider = p.$1),
+            child: Container(
+              margin: EdgeInsets.only(right: i < providers.length - 1 ? 8 : 0),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              decoration: BoxDecoration(
+                color: isSel ? const Color(0xFFEFF6FF) : const Color(0xFFFAFAFF),
+                border: Border.all(
+                  color: isSel ? AppColors.primary : const Color(0xFFE2E8F0),
+                  width: isSel ? 2 : 1),
+                borderRadius: BorderRadius.circular(10)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(p.$4, size: 20, color: isSel ? p.$3 : const Color(0xFF94A3B8)),
+                const SizedBox(height: 4),
+                Text(p.$2, style: TextStyle(
+                  fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5,
+                  color: isSel ? p.$3 : const Color(0xFFCBD5E1))),
+              ]),
+            ),
+          ));
+        }).toList()),
+        const SizedBox(height: 22),
+
+        // Nombre titular
+        _payField('Nombre del titular', 'Ej. JUAN GARCIA', _cardNameCtrl,
+          onChange: (v) => setState(() {})),
+        const SizedBox(height: 14),
+
+        // Número de tarjeta
+        _payField('Número de tarjeta', '•••• •••• •••• ••••', _cardNumberCtrl,
+          onChange: (v) => setState(() {}),
+          formatters: [FilteringTextInputFormatter.digitsOnly, _CardNumberFormatter()],
+          type: TextInputType.number, maxLen: 19,
+          suffix: Icon(Icons.credit_card_outlined, color: Colors.grey.shade400, size: 20)),
+        const SizedBox(height: 14),
+
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: _payField('Fecha de vencimiento', 'MM/AA', _expiryCtrl,
+            onChange: (v) => setState(() {}),
+            formatters: [_ExpiryFormatter()],
+            type: TextInputType.number, maxLen: 5)),
+          const SizedBox(width: 12),
+          Expanded(child: _payField('CVV', '•••', _cvvCtrl,
+            obscure: true, type: TextInputType.number, maxLen: 4)),
+        ]),
+        const SizedBox(height: 20),
+
+        if (_payError != null) ...[
+          _errorBox(_payError!),
+          const SizedBox(height: 12),
+        ],
+
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton.icon(
+            onPressed: _paying ? null : _submitPayment,
+            icon: _paying
+                ? const SizedBox(width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                : const Icon(Icons.lock_outline, size: 18),
+            label: Text(_paying ? 'Procesando...' : 'Confirmar y pagar',
+              style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.emerald,
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFFD1D5DB),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ),
+      ],
     );
   }
+
+  Widget _payField(String label, String hint, TextEditingController ctrl, {
+    ValueChanged<String>? onChange,
+    bool obscure = false,
+    List<TextInputFormatter>? formatters,
+    TextInputType? type,
+    int? maxLen,
+    Widget? suffix,
+  }) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Text(label, style: const TextStyle(
+      fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
+    const SizedBox(height: 6),
+    TextField(
+      controller: ctrl, obscureText: obscure,
+      onChanged: onChange, inputFormatters: formatters,
+      keyboardType: type, maxLength: maxLen,
+      decoration: InputDecoration(
+        hintText: hint, counterText: '',
+        filled: true, fillColor: const Color(0xFFF8FAFC),
+        suffixIcon: suffix,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14)),
+    ),
+  ]);
 
   // ── PASO 3: Asientos ──────────────────────────────────────
   final Set<String> _occupiedSeats = {};
@@ -704,100 +992,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
         overflow: TextOverflow.ellipsis)),
     ]));
 
-  // ── Tarjeta frente ────────────────────────────────────────
-  Widget _cardFront(Color color) => Container(
-    key: const ValueKey('front'),
-    height: 190,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [color, color.withValues(alpha: 0.75)]),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4),
-        blurRadius: 24, offset: const Offset(0, 10))],
-    ),
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(children: [
-          // Chip dorado
-          Container(width: 36, height: 28,
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37),
-              borderRadius: BorderRadius.circular(5)),
-            child: const Icon(Icons.grid_view, color: Colors.white, size: 14)),
-          const Spacer(),
-          Text(_provider, style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15,
-            letterSpacing: 1)),
-        ]),
-        Text(_cardNumberCtrl.text.isEmpty ? '•••• •••• •••• ••••' : _cardNumberCtrl.text,
-          style: const TextStyle(color: Colors.white, fontSize: 19,
-            fontFamily: 'monospace', letterSpacing: 3)),
-        Row(children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('TITULAR', style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.65), fontSize: 9, letterSpacing: 1)),
-            const SizedBox(height: 2),
-            Text(_cardNameCtrl.text.isEmpty ? 'TU NOMBRE' : _cardNameCtrl.text.toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-          ]),
-          const Spacer(),
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text('VENCE', style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.65), fontSize: 9, letterSpacing: 1)),
-            const SizedBox(height: 2),
-            Text(_expiryCtrl.text.isEmpty ? 'MM/AA' : _expiryCtrl.text,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-          ]),
-        ]),
-      ],
-    ),
-  );
-
-  // ── Tarjeta reverso (CVV) ──────────────────────────────────
-  Widget _cardBack(Color color) => Container(
-    key: const ValueKey('back'),
-    height: 190,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topRight, end: Alignment.bottomLeft,
-        colors: [color.withValues(alpha: 0.75), color]),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4),
-        blurRadius: 24, offset: const Offset(0, 10))],
-    ),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(height: 44, color: Colors.black.withValues(alpha: 0.4)),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(children: [
-            Expanded(child: Container(
-              height: 36, color: Colors.white.withValues(alpha: 0.3),
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('•' * (_cvvCtrl.text.length),
-                style: const TextStyle(color: Colors.white,
-                  letterSpacing: 4, fontSize: 16)))),
-            const SizedBox(width: 12),
-            Container(
-              height: 36, width: 60,
-              color: Colors.white,
-              alignment: Alignment.center,
-              child: Text(_cvvCtrl.text.isEmpty ? 'CVV' : _cvvCtrl.text,
-                style: const TextStyle(fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E293B), fontSize: 14))),
-          ]),
-        ),
-      ],
-    ),
-  );
-
   Widget _legend(Color color, String label, {bool border = false}) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -832,21 +1026,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
       ),
     );
 
-  Widget _fieldListen(String label, TextEditingController ctrl, ValueChanged<String> onChanged,
-      {List<TextInputFormatter>? inputFormatters, TextInputType? keyboardType, int? maxLength}) =>
-    TextField(
-      controller: ctrl, onChanged: onChanged,
-      inputFormatters: inputFormatters, keyboardType: keyboardType,
-      maxLength: maxLength,
-      decoration: InputDecoration(
-        labelText: label, counterText: '',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-      ),
-    );
 }
 
 // ── Mapa visual de asientos ───────────────────────────────

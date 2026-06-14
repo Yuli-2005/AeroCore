@@ -15,7 +15,7 @@ class FlightClass {
     required this.price, required this.availableSeats});
   factory FlightClass.fromJson(Map j) => FlightClass(
     id: j['id'] ?? '', cabinClass: j['cabinClass'] ?? 'ECONOMY',
-    price: (j['price'] ?? 0).toDouble(),
+    price: (j['basePrice'] ?? j['price'] ?? 0).toDouble(),
     availableSeats: j['availableSeats'] ?? 0);
 }
 
@@ -31,8 +31,9 @@ class Flight {
     required this.airlineName, required this.classes});
   factory Flight.fromJson(Map j) => Flight(
     id: j['id'] ?? '', flightNumber: j['flightNumber'] ?? '',
-    status: j['status'] ?? '', departureTime: j['departureTime'] ?? '',
-    arrivalTime: j['arrivalTime'] ?? '',
+    status: j['status'] ?? '',
+    departureTime: j['departureDateTime'] ?? j['departureTime'] ?? '',
+    arrivalTime:   j['arrivalDateTime']   ?? j['arrivalTime']   ?? '',
     origin:      Airport.fromJson(j['originAirport'] ?? {}),
     destination: Airport.fromJson(j['destinationAirport'] ?? {}),
     airlineName: j['airline']?['name'] ?? '',

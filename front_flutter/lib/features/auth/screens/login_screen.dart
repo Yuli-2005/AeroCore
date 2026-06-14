@@ -110,7 +110,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Panel derecho — formulario
         Expanded(
           flex: 4,
-          child: Center(child: _formContent()),
+          child: SingleChildScrollView(
+            child: Center(child: _formContent()),
+          ),
         ),
       ],
     );
