@@ -122,6 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
               child: Column(
                 children: [
                   _hero(),
+                  _offersSection(),
                   _featuresSection(),
                 ],
               ),
@@ -223,6 +224,8 @@ class _SearchScreenState extends State<SearchScreen> {
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 16)),
                   const SizedBox(height: 36),
                   _searchCard(),
+                  const SizedBox(height: 20),
+                  _popularChips(),
                 ],
               ),
             ),
@@ -343,8 +346,8 @@ class _SearchScreenState extends State<SearchScreen> {
                   onTap: () {
                     setState(() {
                       ctrl.text = '$code — $name';
-                      if (isOrigin) { _originCode = a['id']; _showOriginDrop = false; }
-                      else          { _destCode   = a['id']; _showDestDrop   = false; }
+                      if (isOrigin) { _originCode = code; _showOriginDrop = false; }
+                      else          { _destCode   = code; _showDestDrop   = false; }
                     });
                   },
                 );
@@ -437,6 +440,117 @@ class _SearchScreenState extends State<SearchScreen> {
           )).toList(),
           onChanged: (v) { if (v != null) setState(() => _cabin = v); },
         ),
+      ),
+    );
+  }
+
+  // ── Rutas populares (chips) ───────────────────────────────
+  static const _popularRoutes = [
+    ('GYE', 'Guayaquil', 'UIO', 'Quito',    50.0),
+    ('UIO', 'Quito',     'GYE', 'Guayaquil', 55.0),
+    ('UIO', 'Quito',     'BOG', 'Bogotá',   100.0),
+    ('BOG', 'Bogotá',    'UIO', 'Quito',    100.0),
+    ('GYE', 'Guayaquil', 'BOG', 'Bogotá',   150.0),
+    ('UIO', 'Quito',     'LIM', 'Lima',     210.0),
+  ];
+
+  void _quickSelect(String oCode, String oCity, String dCode, String dCity) {
+    final oAp = _airports.where((a) => a['iataCode'] == oCode).firstOrNull;
+    final dAp = _airports.where((a) => a['iataCode'] == dCode).firstOrNull;
+    setState(() {
+      _originCtrl.text = '$oCode — ${oAp?['name'] ?? oCity}';
+      _originCode = oCode;
+      _destCtrl.text   = '$dCode — ${dAp?['name'] ?? dCity}';
+      _destCode = dCode;
+      _showOriginDrop = false;
+      _showDestDrop   = false;
+    });
+  }
+
+  Widget _popularChips() => Wrap(
+    spacing: 8, runSpacing: 8,
+    children: _popularRoutes.map((r) {
+      return ActionChip(
+        backgroundColor: Colors.white.withValues(alpha: 0.18),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+        label: Text(
+          '${r.$1} → ${r.$3}  desde \$${r.$5.toInt()}',
+          style: const TextStyle(color: Colors.white, fontSize: 12)),
+        onPressed: () => _quickSelect(r.$1, r.$2, r.$3, r.$4),
+      );
+    }).toList(),
+  );
+
+  // ── Ofertas recomendadas ──────────────────────────────────
+  Widget _offersSection() {
+    final gradients = [
+      [const Color(0xFF10B981), const Color(0xFF059669)],
+      [const Color(0xFF6366F1), const Color(0xFF4F46E5)],
+      [const Color(0xFF6366F1), const Color(0xFF7C3AED)],
+      [const Color(0xFF2563EB), const Color(0xFF1D4ED8)],
+      [const Color(0xFF7C3AED), const Color(0xFF6D28D9)],
+      [const Color(0xFF0EA5E9), const Color(0xFF0284C7)],
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 0, 40, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Ofertas recomendadas',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+          const SizedBox(height: 6),
+          const Text('Rutas reales disponibles en la base de datos',
+            style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+          const SizedBox(height: 24),
+          LayoutBuilder(builder: (_, c) {
+            final cols = c.maxWidth > 800 ? 3 : c.maxWidth > 500 ? 2 : 1;
+            final rows = <Widget>[];
+            for (var i = 0; i < _popularRoutes.length; i += cols) {
+              final rowItems = <Widget>[];
+              for (var j = i; j < i + cols && j < _popularRoutes.length; j++) {
+                final r = _popularRoutes[j];
+                final g = gradients[j % gradients.length];
+                rowItems.add(Expanded(child: GestureDetector(
+                  onTap: () => _quickSelect(r.$1, r.$2, r.$3, r.$4),
+                  child: Container(
+                    margin: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        colors: g),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Text(r.$1, style: const TextStyle(
+                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(Icons.arrow_forward, color: Colors.white, size: 18)),
+                        Text(r.$3, style: const TextStyle(
+                          color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900)),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(r.$2, style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8), fontSize: 11)),
+                      const SizedBox(height: 16),
+                      Text('desde', style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+                      Text('\$${r.$5.toInt()}',
+                        style: const TextStyle(
+                          color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
+                      Text('por persona · ida', style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
+                    ]),
+                  ),
+                )));
+              }
+              rows.add(Row(children: rowItems));
+            }
+            return Column(children: rows);
+          }),
+        ],
       ),
     );
   }
