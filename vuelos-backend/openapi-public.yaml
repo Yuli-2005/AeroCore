@@ -218,6 +218,120 @@ paths:
 
 
 
+  # ── AUTH ─────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrar usuario
+      description: |
+        Crea una nueva cuenta y retorna el JWT listo para usar.
+        No requiere token — es el primer paso para cualquier integración.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, firstLastName, email, password]
+              properties:
+                firstName:      { type: string, example: "Juan" }
+                firstLastName:  { type: string, example: "Pérez" }
+                secondName:     { type: string, nullable: true, example: "Carlos" }
+                secondLastName: { type: string, nullable: true, example: "López" }
+                email:          { type: string, format: email, example: "juan@ejemplo.com" }
+                password:       { type: string, minLength: 6, example: "mi_clave_segura" }
+                address:        { type: string, nullable: true, example: "Av. Amazonas 123" }
+                phone:          { type: string, nullable: true, example: "+593987654321" }
+            example:
+              firstName: Juan
+              firstLastName: Pérez
+              email: juan@ejemplo.com
+              password: mi_clave_segura
+      responses:
+        '201':
+          description: Usuario creado — retorna token JWT
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token: { type: string, example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+                          user:
+                            type: object
+                            properties:
+                              id:        { type: string }
+                              email:     { type: string }
+                              firstName: { type: string }
+        '409':
+          description: El correo ya está registrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      description: |
+        Autentica al usuario y retorna el JWT.
+        Usa ese token en el header `Authorization: Bearer <token>` para todos los
+        endpoints privados.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:    { type: string, format: email, example: "juan@ejemplo.com" }
+                password: { type: string, example: "mi_clave_segura" }
+            example:
+              email: juan@ejemplo.com
+              password: mi_clave_segura
+      responses:
+        '200':
+          description: Login exitoso — retorna token JWT
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          token: { type: string, example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+                          user:
+                            type: object
+                            properties:
+                              id:        { type: string }
+                              email:     { type: string }
+                              firstName: { type: string }
+              example:
+                success: true
+                data:
+                  token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    id: "cmp..."
+                    email: "juan@ejemplo.com"
+                    firstName: "Juan"
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
   # ── AIRPORTS ─────────────────────────────────────────────────
   /airports:
     get:
@@ -1033,6 +1147,8 @@ paths:
 #   TAGS
 # ============================================================
 tags:
+  - name: Auth
+    description: Registro e inicio de sesión — retornan el JWT para endpoints privados
   - name: Status
     description: Estado y metadatos del servicio
 
