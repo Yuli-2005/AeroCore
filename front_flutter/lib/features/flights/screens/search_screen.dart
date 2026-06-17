@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/api/sse_client.dart';
 import '../../../core/storage/token_storage.dart';
 import '../../../shared/widgets/app_theme.dart';
 
@@ -775,19 +777,49 @@ class _ResultsScreen extends StatelessWidget {
   }
 }
 
-class _FlightCard extends StatelessWidget {
+class _FlightCard extends StatefulWidget {
   final dynamic flight;
   final int passengers;
   const _FlightCard({required this.flight, required this.passengers});
+  @override State<_FlightCard> createState() => _FlightCardState();
+}
+
+class _FlightCardState extends State<_FlightCard> {
+  // flightClassId → asientos actualizados en tiempo real
+  final Map<String, int> _liveSeats = {};
+  StreamSubscription<Map<String, dynamic>>? _sseSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final flightId = widget.flight['id'] as String?;
+    if (flightId != null && flightId.isNotEmpty) {
+      _sseSub = sseAvailability(flightId).listen((event) {
+        final fcId  = event['flightClassId'] as String?;
+        final seats = event['availableSeats'] as int?;
+        if (fcId != null && seats != null && mounted) {
+          setState(() => _liveSeats[fcId] = seats);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _sseSub?.cancel();
+    super.dispose();
+  }
 
   String _time(String dt) => dt.length > 15 ? dt.substring(11, 16) : dt;
 
   @override
   Widget build(BuildContext context) {
+    final flight   = widget.flight;
+    final passengers = widget.passengers;
     final dep = flight['departureDateTime'] as String? ?? flight['departureTime'] as String? ?? '';
     final arr = flight['arrivalDateTime']   as String? ?? flight['arrivalTime']   as String? ?? '';
-    final origin  = flight['originAirport']?['iataCode'] ?? '';
-    final dest    = flight['destinationAirport']?['iataCode'] ?? '';
+    final origin   = flight['originAirport']?['iataCode'] ?? '';
+    final dest     = flight['destinationAirport']?['iataCode'] ?? '';
     final origCity = flight['originAirport']?['city']?['name'] ?? '';
     final destCity = flight['destinationAirport']?['city']?['name'] ?? '';
     final airline  = flight['airline']?['name'] ?? '';
@@ -855,10 +887,13 @@ class _FlightCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: classes.map<Widget>((c) {
-                final price = double.tryParse((c['basePrice'] ?? c['price'] ?? 0).toString()) ?? 0.0;
-                final seats = c['availableSeats'] ?? 0;
-                final cabin = c['cabinClass'] as String? ?? '';
+                final price   = double.tryParse((c['basePrice'] ?? c['price'] ?? 0).toString()) ?? 0.0;
+                final fcId    = c['id'] as String? ?? '';
+                // Usa asientos en tiempo real si llegó un update SSE, si no el valor original
+                final seats   = _liveSeats[fcId] ?? (c['availableSeats'] ?? 0);
+                final cabin   = c['cabinClass'] as String? ?? '';
                 final noSeats = seats == 0;
+                final isLive  = _liveSeats.containsKey(fcId);
                 final cabinEmoji = cabin == 'FIRST' ? '👑'
                     : cabin == 'BUSINESS' ? '💼' : '✈️';
                 final cabinBg = cabin == 'FIRST'
@@ -867,13 +902,17 @@ class _FlightCard extends StatelessWidget {
                         ? const Color(0xFFFFFBEB)
                         : const Color(0xFFF0F9FF);
 
-                return Container(
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: noSeats ? const Color(0xFFF8FAFC) : cabinBg,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0))),
+                    border: Border.all(
+                      color: isLive && !noSeats
+                          ? AppColors.emerald.withValues(alpha: 0.5)
+                          : const Color(0xFFE2E8F0))),
                   child: Row(children: [
                     Text(cabinEmoji, style: const TextStyle(fontSize: 18)),
                     const SizedBox(width: 10),
@@ -881,9 +920,19 @@ class _FlightCard extends StatelessWidget {
                       Text(cabin, style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 13,
                         color: noSeats ? const Color(0xFF94A3B8) : const Color(0xFF1E293B))),
-                      Text('$seats asientos', style: TextStyle(
-                        fontSize: 11,
-                        color: noSeats ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+                      Row(children: [
+                        Text('$seats asientos', style: TextStyle(
+                          fontSize: 11,
+                          color: noSeats ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+                        if (isLive) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            width: 6, height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.emerald,
+                              shape: BoxShape.circle)),
+                        ],
+                      ]),
                     ]),
                     const Spacer(),
                     Text('\$${(price * passengers).toStringAsFixed(0)}',
