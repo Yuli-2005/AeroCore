@@ -66,8 +66,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: Stack(children: [
         Positioned(top: 60,    left: 60,  child: _glow(180, Colors.white, 0.07)),
         Positioned(bottom: 80, right: 40, child: _glow(130, Colors.white, 0.05)),
-        Center(child: Padding(
-          padding: const EdgeInsets.all(40),
+        Positioned.fill(child: SingleChildScrollView(child: Center(child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
           child: Column(mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Icon(Icons.flight_takeoff, color: Colors.white, size: 48),
@@ -91,11 +91,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     fontWeight: FontWeight.w500)),
                 ]))),
           ]),
-        )),
+        )))),
       ]),
     )),
     // Panel derecho — formulario
-    Expanded(flex: 6, child: Center(child: _form())),
+    Expanded(flex: 6, child: SingleChildScrollView(child: Center(child: _form()))),
   ]);
 
   Widget _mobileLayout() => SingleChildScrollView(child: Column(children: [

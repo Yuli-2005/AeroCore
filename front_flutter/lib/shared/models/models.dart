@@ -1,3 +1,5 @@
+double _d(dynamic v) => double.tryParse((v ?? 0).toString()) ?? 0.0;
+
 class Airport {
   final String id, iataCode, name;
   final String? cityName;
@@ -15,7 +17,7 @@ class FlightClass {
     required this.price, required this.availableSeats});
   factory FlightClass.fromJson(Map j) => FlightClass(
     id: j['id'] ?? '', cabinClass: j['cabinClass'] ?? 'ECONOMY',
-    price: (j['basePrice'] ?? j['price'] ?? 0).toDouble(),
+    price: _d(j['basePrice'] ?? j['price']),
     availableSeats: j['availableSeats'] ?? 0);
 }
 
@@ -39,19 +41,38 @@ class Flight {
     airlineName: j['airline']?['name'] ?? '',
     classes: (j['flightClasses'] as List<dynamic>? ?? [])
         .map((c) => FlightClass.fromJson(c)).toList());
+
+  // Used when flight comes from reservation response (segments-based structure)
+  factory Flight.fromReservationJson(Map j) {
+    final segs = j['segments'] as List<dynamic>?;
+    final seg  = (segs != null && segs.isNotEmpty) ? segs[0] as Map : null;
+    return Flight(
+      id:            j['id']           ?? '',
+      flightNumber:  j['flightNumber'] ?? '',
+      status:        j['status']       ?? '',
+      departureTime: seg?['departureDateTime'] ?? '',
+      arrivalTime:   seg?['arrivalDateTime']   ?? '',
+      origin:      Airport.fromJson(seg?['originAirport']      ?? {}),
+      destination: Airport.fromJson(seg?['destinationAirport'] ?? {}),
+      airlineName: seg?['airline']?['name'] ?? '',
+      classes:     [],
+    );
+  }
+
   String get depTime => departureTime.length > 15 ? departureTime.substring(11, 16) : departureTime;
   String get arrTime => arrivalTime.length > 15 ? arrivalTime.substring(11, 16) : arrivalTime;
 }
 
 class Passenger {
   final String id, firstName, lastName, documentNumber;
-  final String? seatNumber, cabinClass;
+  final String? seatNumber, cabinClass, flightClassId;
   Passenger({required this.id, required this.firstName, required this.lastName,
-    required this.documentNumber, this.seatNumber, this.cabinClass});
+    required this.documentNumber, this.seatNumber, this.cabinClass, this.flightClassId});
   factory Passenger.fromJson(Map j) => Passenger(
     id: j['id'] ?? '', firstName: j['firstName'] ?? '',
     lastName: j['lastName'] ?? '', documentNumber: j['documentNumber'] ?? '',
-    seatNumber: j['seatNumber'], cabinClass: j['cabinClass']);
+    seatNumber: j['seatNumber'], cabinClass: j['cabinClass'],
+    flightClassId: j['flightClassId']);
   String get fullName => '$firstName $lastName';
 }
 
@@ -65,9 +86,9 @@ class Invoice {
   factory Invoice.fromJson(Map j) => Invoice(
     id:            j['id']            ?? '',
     invoiceNumber: j['invoiceNumber'] ?? '',
-    subtotal:      (j['subtotal']     ?? 0).toDouble(),
-    taxAmount:     (j['taxAmount']    ?? 0).toDouble(),
-    total:         (j['total']        ?? 0).toDouble(),
+    subtotal:      _d(j['subtotal']),
+    taxAmount:     _d(j['taxAmount']),
+    total:         _d(j['total']),
     createdAt:     j['createdAt']     ?? '');
 }
 
@@ -82,10 +103,10 @@ class Reservation {
     this.createdAt, required this.passengers, this.flight});
   factory Reservation.fromJson(Map j) => Reservation(
     id: j['id'] ?? '', reservationCode: j['reservationCode'] ?? '',
-    status: j['status'] ?? '', totalAmount: (j['totalAmount'] ?? 0).toDouble(),
+    status: j['status'] ?? '', totalAmount: _d(j['totalAmount']),
     createdAt: j['createdAt'],
     passengers: (j['passengers'] as List<dynamic>? ?? [])
         .map((p) => Passenger.fromJson(p)).toList(),
-    flight: j['flightClass']?['flight'] != null
-        ? Flight.fromJson(j['flightClass']['flight']) : null);
+    flight: j['flight'] != null
+        ? Flight.fromReservationJson(j['flight']) : null);
 }

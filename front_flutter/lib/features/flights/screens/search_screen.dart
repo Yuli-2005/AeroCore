@@ -855,7 +855,7 @@ class _FlightCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: classes.map<Widget>((c) {
-                final price = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
+                final price = double.tryParse((c['basePrice'] ?? c['price'] ?? 0).toString()) ?? 0.0;
                 final seats = c['availableSeats'] ?? 0;
                 final cabin = c['cabinClass'] as String? ?? '';
                 final noSeats = seats == 0;

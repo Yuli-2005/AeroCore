@@ -130,6 +130,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
         'status':        'COMPLETED',
       });
       setState(() { _step = 2; _currentPax = 0; });
+      _loadOccupiedSeats();
     } on DioException catch (e) {
       final msg = e.response?.data?['error']?['message']
                ?? e.response?.data?['message']
@@ -140,6 +141,21 @@ class _ReservationScreenState extends State<ReservationScreen> {
     } finally {
       setState(() => _paying = false);
     }
+  }
+
+  Future<void> _loadOccupiedSeats() async {
+    try {
+      final res = await dio.get(
+        '/reservations/flight-classes/${widget.flightClassId}/occupied-seats',
+      );
+      final list = res.data['data'];
+      if (list is List && mounted) {
+        setState(() => _occupiedSeats = list
+            .whereType<String>()
+            .where((s) => s.isNotEmpty)
+            .toSet());
+      }
+    } catch (_) {}
   }
 
   Future<void> _assignSeat(String seat) async {
@@ -160,6 +176,8 @@ class _ReservationScreenState extends State<ReservationScreen> {
         }
       });
     } catch (_) {
+      // Marcar visualmente como ocupado para que no vuelvan a intentarlo
+      setState(() => _occupiedSeats = {..._occupiedSeats, seat});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Asiento ocupado, elige otro'),
@@ -438,17 +456,27 @@ class _ReservationScreenState extends State<ReservationScreen> {
     ),
   );
 
+  static const _cardGradients = {
+    'VISA':       [Color(0xFF0D2B8A), Color(0xFF1A3FA8), Color(0xFF2855C8)],
+    'MASTERCARD': [Color(0xFF7B1F1F), Color(0xFFB52020), Color(0xFFE03010)],
+    'AMEX':       [Color(0xFF005F8E), Color(0xFF0078B0), Color(0xFF009FD4)],
+    'PAYPAL':     [Color(0xFF001A5E), Color(0xFF003087), Color(0xFF0070BA)],
+  };
+
+  List<Color> get _cardColors =>
+      _cardGradients[_provider] ?? _cardGradients['VISA']!;
+
   Widget _cardFrontPurple({Key? key}) => Container(
     key: key,
     height: 190,
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFF9333EA)],
+        colors: _cardColors,
       ),
       borderRadius: BorderRadius.circular(20),
       boxShadow: [BoxShadow(
-        color: const Color(0xFF4F46E5).withValues(alpha: 0.5),
+        color: _cardColors[0].withValues(alpha: 0.55),
         blurRadius: 28, offset: const Offset(0, 12))],
     ),
     padding: const EdgeInsets.all(22),
@@ -516,13 +544,13 @@ class _ReservationScreenState extends State<ReservationScreen> {
     key: key,
     height: 190,
     decoration: BoxDecoration(
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topRight, end: Alignment.bottomLeft,
-        colors: [Color(0xFF9333EA), Color(0xFF7C3AED), Color(0xFF4F46E5)],
+        colors: _cardColors.reversed.toList(),
       ),
       borderRadius: BorderRadius.circular(20),
       boxShadow: [BoxShadow(
-        color: const Color(0xFF4F46E5).withValues(alpha: 0.5),
+        color: _cardColors[0].withValues(alpha: 0.55),
         blurRadius: 28, offset: const Offset(0, 12))],
     ),
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -737,56 +765,103 @@ class _ReservationScreenState extends State<ReservationScreen> {
   ]);
 
   // ── PASO 3: Asientos ──────────────────────────────────────
-  final Set<String> _occupiedSeats = {};
+  Set<String> _occupiedSeats = {};
 
   Widget _step3Seats() {
     if (_reservation == null) return const SizedBox();
     final passengers = _reservation!.passengers;
     final cabin = passengers.first.cabinClass ?? 'ECONOMY';
+    final assigned = _seats.whereType<String>().length;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Selección de asientos',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 4),
-          const Text('Opcional — puedes omitir y asignar después',
-            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+          // Header
+          Row(children: [
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Selección de Asientos',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800,
+                  color: Color(0xFF1E293B))),
+              const SizedBox(height: 2),
+              Text('$assigned de ${passengers.length} asignados',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+            ]),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFBFDBFE))),
+              child: Text(cabin,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                  color: AppColors.primary, letterSpacing: 0.5)),
+            ),
+          ]),
           const SizedBox(height: 16),
-          // Selector de pasajero
+
+          // Tabs pasajeros
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: passengers.asMap().entries.map((e) {
               final idx = e.key; final pax = e.value;
               final selected = idx == _currentPax;
+              final hasSeat = _seats[idx] != null;
               return GestureDetector(
                 onTap: () => setState(() => _currentPax = idx),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  margin: const EdgeInsets.only(right: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFEFF6FF) : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: selected ? AppColors.gradientButton : null,
+                    color: selected ? null : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected ? AppColors.primary : const Color(0xFFE2E8F0),
-                      width: selected ? 2 : 1)),
+                      color: selected ? Colors.transparent
+                           : hasSeat ? AppColors.emerald
+                           : const Color(0xFFE2E8F0),
+                      width: 1.5),
+                    boxShadow: selected ? [BoxShadow(
+                      color: AppColors.primaryDark.withValues(alpha: 0.25),
+                      blurRadius: 8, offset: const Offset(0, 3))] : null,
+                  ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (_seats[idx] != null)
-                      const Icon(Icons.check_circle, color: AppColors.emerald, size: 14)
-                    else Text('${idx + 1}', style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700,
-                      color: selected ? AppColors.primary : const Color(0xFF94A3B8))),
+                    Icon(hasSeat ? Icons.event_seat : Icons.person_outline,
+                      size: 14,
+                      color: selected ? Colors.white
+                           : hasSeat ? AppColors.emerald
+                           : const Color(0xFF94A3B8)),
                     const SizedBox(width: 6),
-                    Text(pax.firstName, style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600,
-                      color: selected ? AppColors.primary : const Color(0xFF1E293B))),
+                    Text(pax.firstName,
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                        color: selected ? Colors.white
+                             : hasSeat ? AppColors.emerald
+                             : const Color(0xFF374151))),
+                    if (hasSeat) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(6)),
+                        child: Text(_seats[idx]!,
+                          style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.w800,
+                            color: selected ? Colors.white : AppColors.emerald)),
+                      ),
+                    ],
                   ]),
                 ),
               );
             }).toList()),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
           // Mapa de asientos
           _SeatMapWidget(
             cabin: cabin,
@@ -795,24 +870,51 @@ class _ReservationScreenState extends State<ReservationScreen> {
             currentSeat: _seats[_currentPax],
             onSeatTap: _assignSeat,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
           // Leyenda
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            _legend(const Color(0xFF3B82F6), 'Tu asiento'),
-            const SizedBox(width: 16),
-            _legend(const Color(0xFFE2E8F0), 'Ocupado'),
-            const SizedBox(width: 16),
-            _legend(Colors.white, 'Disponible', border: true),
-          ]),
-          const SizedBox(height: 20),
-          OutlinedButton(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+              _legendItem(AppColors.primaryDark, Icons.event_seat, 'Mi asiento'),
+              _legendItem(const Color(0xFFEF4444), Icons.block, 'Ocupado'),
+              _legendItem(Colors.white, Icons.chair_outlined, 'Disponible',
+                border: const Color(0xFFCBD5E1)),
+            ]),
+          ),
+          const SizedBox(height: 16),
+
+          OutlinedButton.icon(
             onPressed: _skipSeats,
-            child: const Text('Omitir — asignar después'),
+            icon: const Icon(Icons.skip_next, size: 16),
+            label: const Text('Omitir — asignar asientos después'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF64748B),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              padding: const EdgeInsets.symmetric(vertical: 12)),
           ),
         ],
       ),
     );
   }
+
+  Widget _legendItem(Color color, IconData icon, String label, {Color? border}) =>
+    Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        width: 20, height: 20,
+        decoration: BoxDecoration(
+          color: color, borderRadius: BorderRadius.circular(4),
+          border: border != null ? Border.all(color: border) : null),
+        child: Icon(icon, size: 12,
+          color: color == Colors.white ? const Color(0xFF94A3B8) : Colors.white)),
+      const SizedBox(width: 6),
+      Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF475569),
+        fontWeight: FontWeight.w500)),
+    ]);
 
   // ── PASO 4: Éxito ─────────────────────────────────────────
   Widget _step4Success() {
@@ -992,18 +1094,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
         overflow: TextOverflow.ellipsis)),
     ]));
 
-  Widget _legend(Color color, String label, {bool border = false}) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(width: 16, height: 16,
-        decoration: BoxDecoration(
-          color: color, borderRadius: BorderRadius.circular(3),
-          border: border ? Border.all(color: const Color(0xFFCBD5E1)) : null)),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-    ],
-  );
-
   Widget _errorBox(String msg) => Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
@@ -1046,104 +1136,177 @@ class _SeatMapWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Configuración según cabina (igual que Vue)
-    final cols  = cabin == 'ECONOMY' ? ['A','B','C','D','E','F']
+    final cols  = cabin == 'ECONOMY'  ? ['A','B','C','D','E','F']
                 : cabin == 'BUSINESS' ? ['A','B','C','D']
-                : ['A','B','C','D'];
-    final rows  = cabin == 'ECONOMY' ? 21
+                :                       ['A','B'];
+    final rows  = cabin == 'ECONOMY'  ? 21
                 : cabin == 'BUSINESS' ? 8
-                : 6;
-    final aisle = cabin == 'ECONOMY' ? 3 : 2; // índice donde va el pasillo
+                :                       6;
+    final aisle = cabin == 'ECONOMY'  ? 3 : 2;
+    final total = rows * cols.length;
+    final avail = total - occupiedSeats.length;
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 12, offset: const Offset(0, 4))],
       ),
-      child: Column(
-        children: [
-          // Ícono avión
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.flight, color: AppColors.primaryDark, size: 28),
+      child: Column(children: [
+        // Header stats
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            border: const Border(bottom: BorderSide(color: Color(0xFFE2E8F0)))),
+          child: Row(children: [
+            const Icon(Icons.flight, color: AppColors.primaryDark, size: 18),
+            const SizedBox(width: 8),
+            Text(cabin, style: const TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+            const Spacer(),
+            _StatBadge(avail, const Color(0xFF059669), Icons.event_seat, 'libres'),
+            const SizedBox(width: 8),
+            _StatBadge(occupiedSeats.length, const Color(0xFFEF4444),
+              Icons.block, 'ocupados'),
           ]),
-          const SizedBox(height: 12),
-          // Letras de columnas
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(width: 28), // espacio número de fila
-              ...cols.asMap().entries.expand((e) {
-                final widgets = <Widget>[
-                  SizedBox(
-                    width: 28,
-                    child: Center(child: Text(e.value,
-                      style: const TextStyle(fontSize: 11,
-                          fontWeight: FontWeight.w700, color: Color(0xFF94A3B8)))),
-                  ),
-                ];
-                if (e.key == aisle - 1) widgets.add(const SizedBox(width: 16));
-                return widgets;
+        ),
+
+        // Mapa de asientos
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(children: [
+            // Nariz del avión
+            Container(
+              width: 72, height: 28,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                  colors: [Color(0xFFEFF6FF), Color(0xFFDBEAFE)]),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(36)),
+                border: Border.all(color: const Color(0xFFBFDBFE))),
+              child: const Center(
+                child: Icon(Icons.flight, color: AppColors.primary, size: 16))),
+            const SizedBox(height: 10),
+
+            // Letras columnas
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const SizedBox(width: 32),
+              ...cols.asMap().entries.expand((e) sync* {
+                yield SizedBox(
+                  width: 36,
+                  child: Center(child: Text(e.value,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                      color: Color(0xFF64748B)))));
+                if (e.key == aisle - 1) yield const SizedBox(width: 24);
               }),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Filas de asientos
-          ...List.generate(rows, (rowIdx) {
-            final rowNum = rowIdx + 1;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Número de fila
-                  SizedBox(width: 28,
-                    child: Center(child: Text('$rowNum',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))))),
-                  // Asientos
-                  ...cols.asMap().entries.expand((e) {
-                    final seatId = '$rowNum${e.value}';
+            ]),
+            const SizedBox(height: 8),
+
+            // Filas
+            ...List.generate(rows, (rowIdx) {
+              final rowNum = rowIdx + 1;
+              // Zona de cabina
+              final isFirst    = cabin == 'FIRST';
+              final isBusiness = cabin == 'BUSINESS';
+              Color rowAccent  = isFirst    ? const Color(0xFFFEF3C7)
+                               : isBusiness ? const Color(0xFFEDE9FE)
+                               :              Colors.transparent;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 5),
+                decoration: rowAccent != Colors.transparent
+                    ? BoxDecoration(color: rowAccent.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(6))
+                    : null,
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  SizedBox(width: 32,
+                    child: Text('$rowNum',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8)))),
+                  ...cols.asMap().entries.expand((e) sync* {
+                    final seatId     = '$rowNum${e.value}';
                     final isOccupied = occupiedSeats.contains(seatId);
                     final isMine     = mySeats.contains(seatId);
                     final isCurrent  = currentSeat == seatId;
 
-                    Color bg, border;
-                    if (isCurrent || isMine) {
-                      bg = AppColors.primary; border = AppColors.primaryDark;
+                    Color bg, borderCol;
+                    Widget? icon;
+
+                    if (isCurrent) {
+                      bg = AppColors.primary;
+                      borderCol = AppColors.primaryDark;
+                      icon = const Icon(Icons.person, color: Colors.white, size: 13);
+                    } else if (isMine) {
+                      bg = AppColors.primaryDark;
+                      borderCol = AppColors.primaryDark;
+                      icon = const Icon(Icons.check, color: Colors.white, size: 11);
                     } else if (isOccupied) {
-                      bg = const Color(0xFFE2E8F0); border = const Color(0xFFCBD5E1);
+                      bg = const Color(0xFFFEE2E2);
+                      borderCol = const Color(0xFFFCA5A5);
+                      icon = const Icon(Icons.close, color: Color(0xFFEF4444), size: 10);
                     } else {
-                      bg = Colors.white; border = const Color(0xFFCBD5E1);
+                      bg = Colors.white;
+                      borderCol = const Color(0xFFCBD5E1);
+                      icon = null;
                     }
 
-                    final widgets = <Widget>[
-                      GestureDetector(
-                        onTap: isOccupied ? null : () => onSeatTap(seatId),
-                        child: Container(
-                          width: 26, height: 22,
-                          decoration: BoxDecoration(
-                            color: bg,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: border),
-                          ),
-                          child: isCurrent || isMine
-                              ? const Icon(Icons.person, color: Colors.white, size: 12)
-                              : null,
+                    yield GestureDetector(
+                      onTap: isOccupied ? null : () => onSeatTap(seatId),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 120),
+                        width: 32, height: 28,
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          color: bg,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: borderCol,
+                            width: isCurrent ? 2 : 1),
+                          boxShadow: (isMine || isCurrent) ? [BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 4, offset: const Offset(0, 2))] : null,
                         ),
+                        child: icon != null ? Center(child: icon) : null,
                       ),
-                    ];
-                    if (e.key == aisle - 1) widgets.add(const SizedBox(width: 16));
-                    return widgets;
+                    );
+                    if (e.key == aisle - 1) yield const SizedBox(width: 24);
                   }),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+                ]),
+              );
+            }),
+          ]),
+        ),
+      ]),
     );
   }
+}
+
+class _StatBadge extends StatelessWidget {
+  final int count;
+  final Color color;
+  final IconData icon;
+  final String label;
+  const _StatBadge(this.count, this.color, this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(8)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 12, color: color),
+      const SizedBox(width: 4),
+      Text('$count $label',
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+    ]),
+  );
 }
 
 // ── Formatters ────────────────────────────────────────────

@@ -59,10 +59,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Positioned(bottom: 120, right: 40, child: _glowCircle(150, Colors.white, 0.06)),
                 Positioned(top: 300, right: 100,  child: _glowCircle(80,  Colors.white, 0.1)),
                 // Contenido central
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(48),
-                    child: Column(
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                        child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -101,6 +103,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         )),
                       ],
                     ),
+                  ),
+                ),
                   ),
                 ),
               ],

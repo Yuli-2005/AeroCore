@@ -103,113 +103,108 @@ class _Builder {
     final f      = r.flight;
     final qrData = '${r.reservationCode}|${p.firstName} ${p.lastName}|${p.seatNumber ?? 'TBD'}';
 
+    // Columna izquierda — vuelo y datos del pasajero
+    final left = pw.Padding(
+      padding: const pw.EdgeInsets.all(20),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          // Ruta IATA grande
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text(f?.origin.iataCode ?? '---',
+                style: pw.TextStyle(font: bold, fontSize: 34, color: _navy)),
+              pw.Text(f?.origin.cityName ?? f?.origin.name ?? '',
+                style: pw.TextStyle(font: regular, fontSize: 9, color: _slate)),
+            ]),
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+              pw.Text('- - - ✈ - - -',
+                style: pw.TextStyle(font: regular, fontSize: 11, color: _blue)),
+              pw.SizedBox(height: 3),
+              pw.Text(f?.airlineName ?? '',
+                style: pw.TextStyle(font: regular, fontSize: 8, color: _slate)),
+            ]),
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Text(f?.destination.iataCode ?? '---',
+                style: pw.TextStyle(font: bold, fontSize: 34, color: _navy)),
+              pw.Text(f?.destination.cityName ?? f?.destination.name ?? '',
+                style: pw.TextStyle(font: regular, fontSize: 9, color: _slate)),
+            ]),
+          ]),
+          pw.SizedBox(height: 14),
+          pw.Divider(color: _border),
+          pw.SizedBox(height: 12),
+          // Datos pasajero — 2 columnas con tablas
+          pw.Table(
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1),
+              1: pw.FlexColumnWidth(1),
+            },
+            children: [
+              pw.TableRow(children: [
+                _field('Pasajero', '${p.firstName} ${p.lastName}'),
+                _field('Documento', p.documentNumber),
+              ]),
+              pw.TableRow(children: [
+                pw.SizedBox(height: 10),
+                pw.SizedBox(height: 10),
+              ]),
+              pw.TableRow(children: [
+                _field('Clase', _cabinLabel(p.cabinClass)),
+                _field('Estado', _statusLabel(r.status)),
+              ]),
+              if (f != null) ...[
+                pw.TableRow(children: [
+                  pw.SizedBox(height: 10),
+                  pw.SizedBox(height: 10),
+                ]),
+                pw.TableRow(children: [
+                  _field('Salida', f.depTime.isEmpty ? '-' : f.depTime),
+                  _field('Llegada', f.arrTime.isEmpty ? '-' : f.arrTime),
+                ]),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+
+    // Columna derecha — QR + asiento
+    final right = pw.Container(
+      width: 130,
+      color: _light,
+      padding: const pw.EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          pw.BarcodeWidget(
+            barcode: pw.Barcode.qrCode(),
+            data: qrData,
+            width: 96, height: 96,
+            color: _navy,
+          ),
+          pw.SizedBox(height: 12),
+          pw.Text('ASIENTO',
+            style: pw.TextStyle(font: regular, fontSize: 8, color: _slate, letterSpacing: 1.8)),
+          pw.SizedBox(height: 4),
+          pw.Text(p.seatNumber ?? 'N/A',
+            style: pw.TextStyle(font: bold, fontSize: 26, color: _blue)),
+        ],
+      ),
+    );
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: _border),
         borderRadius: pw.BorderRadius.circular(12),
+        color: _white,
       ),
       child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          // ── Sección izquierda: vuelo + pasajero ──────────────
-          pw.Expanded(
-            flex: 3,
-            child: pw.Container(
-              padding: const pw.EdgeInsets.all(22),
-              decoration: const pw.BoxDecoration(
-                border: pw.Border(
-                  right: pw.BorderSide(color: _border, width: 1)),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  // Ruta IATA
-                  pw.Row(children: [
-                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                      pw.Text(f?.origin.iataCode ?? '---',
-                        style: pw.TextStyle(font: bold, fontSize: 36, color: _navy)),
-                      pw.Text(f?.origin.cityName ?? '',
-                        style: pw.TextStyle(font: regular, fontSize: 10, color: _slate)),
-                    ]),
-                    pw.Expanded(child: pw.Column(
-                      mainAxisAlignment: pw.MainAxisAlignment.center,
-                      children: [
-                        pw.SizedBox(height: 6),
-                        pw.Text('- - - - - ->',
-                          textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(font: regular, fontSize: 11, color: _blue)),
-                        pw.SizedBox(height: 4),
-                        pw.Text(f?.airlineName ?? '',
-                          textAlign: pw.TextAlign.center,
-                          style: pw.TextStyle(font: regular, fontSize: 9, color: _slate)),
-                      ],
-                    )),
-                    pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-                      pw.Text(f?.destination.iataCode ?? '---',
-                        style: pw.TextStyle(font: bold, fontSize: 36, color: _navy)),
-                      pw.Text(f?.destination.cityName ?? '',
-                        style: pw.TextStyle(font: regular, fontSize: 10, color: _slate)),
-                    ]),
-                  ]),
-                  pw.SizedBox(height: 16),
-                  pw.Divider(color: _border),
-                  pw.SizedBox(height: 14),
-                  // Grid de datos
-                  pw.Row(children: [
-                    pw.Expanded(child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        _field('Pasajero', '${p.firstName} ${p.lastName}'),
-                        pw.SizedBox(height: 10),
-                        _field('Documento', p.documentNumber),
-                        pw.SizedBox(height: 10),
-                        _field('Clase', _cabinLabel(p.cabinClass)),
-                      ],
-                    )),
-                    pw.SizedBox(width: 18),
-                    pw.Expanded(child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        if (f != null) ...[
-                          _field('Salida', f.depTime),
-                          pw.SizedBox(height: 10),
-                          _field('Llegada', f.arrTime),
-                          pw.SizedBox(height: 10),
-                        ],
-                        _field('Estado', _statusLabel(r.status)),
-                      ],
-                    )),
-                  ]),
-                ],
-              ),
-            ),
-          ),
-          // ── Sección derecha: QR + asiento ────────────────────
-          pw.Container(
-            width: 136,
-            color: _light,
-            child: pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(vertical: 22, horizontal: 18),
-              child: pw.Column(
-                mainAxisAlignment: pw.MainAxisAlignment.center,
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.BarcodeWidget(
-                    barcode: pw.Barcode.qrCode(),
-                    data: qrData,
-                    width: 98, height: 98,
-                    color: _navy,
-                  ),
-                  pw.SizedBox(height: 14),
-                  pw.Text('ASIENTO', style: pw.TextStyle(
-                    font: regular, fontSize: 8, color: _slate, letterSpacing: 1.8)),
-                  pw.SizedBox(height: 5),
-                  pw.Text(p.seatNumber ?? 'N/A',
-                    style: pw.TextStyle(font: bold, fontSize: 28, color: _blue)),
-                ],
-              ),
-            ),
-          ),
+          pw.Expanded(child: left),
+          right,
         ],
       ),
     );

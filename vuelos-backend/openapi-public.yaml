@@ -646,6 +646,177 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  # ── OCCUPIED SEATS ───────────────────────────────────────────
+  /reservations/flight-classes/{flightClassId}/occupied-seats:
+    parameters:
+      - name: flightClassId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID de la clase de vuelo
+    get:
+      tags: [Reservations]
+      summary: Asientos ocupados de una clase de vuelo
+      description: |
+        Retorna la lista de números de asiento ya ocupados en la clase de vuelo indicada.
+        Útil para pintar el mapa de asientos antes de que el pasajero elija.
+
+        Solo incluye reservas **no canceladas**. Los asientos sin número asignado no aparecen.
+      responses:
+        '200':
+          description: Lista de números de asiento ocupados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MetaEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { type: string }
+                        example: ["1A", "3C", "14F", "22B"]
+              example:
+                success: true
+                data: ["1A", "3C", "14F", "22B"]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ── GRAPHQL ───────────────────────────────────────────────────
+  /graphql:
+    post:
+      tags: [Real-time]
+      summary: Endpoint GraphQL (queries y subscriptions)
+      description: |
+        Endpoint GraphQL powered by **GraphQL Yoga**.
+        Soporta queries HTTP normales y subscriptions en tiempo real via WebSocket.
+
+        ### Query de salud
+        ```graphql
+        query {
+          _health
+        }
+        ```
+
+        ### Subscription — disponibilidad de asientos en tiempo real
+        Recibe una notificación cada vez que cambia el número de asientos disponibles
+        en cualquier clase de un vuelo.
+
+        ```graphql
+        subscription {
+          seatAvailabilityUpdated(flightId: "cmpizkajw0016ru3piuynlykq") {
+            flightClassId
+            flightId
+            availableSeats
+          }
+        }
+        ```
+
+        ### Cómo conectarse (WebSocket)
+        ```js
+        import { createClient } from 'graphql-ws';
+
+        const client = createClient({
+          url: 'wss://aerocore-api-issd.onrender.com/graphql',
+        });
+
+        client.subscribe(
+          {
+            query: `subscription {
+              seatAvailabilityUpdated(flightId: "<flightId>") {
+                flightClassId
+                availableSeats
+              }
+            }`,
+          },
+          {
+            next: ({ data }) => console.log('Seats updated:', data),
+            error: (err) => console.error(err),
+            complete: () => console.log('done'),
+          }
+        );
+        ```
+
+        > También puedes explorar el schema interactivo en el **GraphiQL playground**:
+        > `GET /graphql` desde el navegador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:     { type: string, example: "query { _health }" }
+                variables: { type: object, nullable: true }
+            example:
+              query: "query { _health }"
+      responses:
+        '200':
+          description: Respuesta GraphQL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:   {}
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message: { type: string }
+              example:
+                data:
+                  _health: "ok"
+
+  # ── SSE — DISPONIBILIDAD EN TIEMPO REAL ──────────────────────
+  /flights/{flightId}/availability/stream:
+    parameters:
+      - name: flightId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID del vuelo a monitorear
+    get:
+      tags: [Real-time]
+      summary: Stream de disponibilidad en tiempo real (SSE)
+      description: |
+        Abre una conexión **Server-Sent Events (SSE)** que emite actualizaciones
+        cada vez que cambia la disponibilidad de asientos del vuelo.
+
+        ### Cómo conectarse
+        ```js
+        const es = new EventSource(
+          '/api/v1/yulieth-galarza/flights/<flightId>/availability/stream',
+          { withCredentials: true }
+        );
+        es.onmessage = (e) => {
+          const { flightClassId, availableSeats } = JSON.parse(e.data);
+          // actualizar UI reactivamente
+        };
+        ```
+
+        ### Eventos emitidos
+        | Tipo | Frecuencia | Payload |
+        |------|-----------|---------|
+        | `message` | Al cambiar disponibilidad | `{ flightClassId, flightId, availableSeats }` |
+        | `comment` (keep-alive) | Cada 25 s | `: keep-alive` |
+
+        > La conexión se mantiene abierta. Ciérrala con `es.close()` cuando el usuario salga de la pantalla.
+      responses:
+        '200':
+          description: Stream SSE establecido
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  data: {"flightClassId":"cmpizkajw0019ru3prrxm9wmc","flightId":"cmpizkajw0016ru3piuynlykq","availableSeats":119}
+
+                  : keep-alive
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   # ── PAYMENTS ─────────────────────────────────────────────────
   /payments:
     post:
@@ -877,3 +1048,5 @@ tags:
     description: Consulta de facturas generadas automáticamente tras el pago
   - name: Promotions
     description: Validación de códigos de descuento
+  - name: Real-time
+    description: Streams SSE para actualizaciones de disponibilidad en tiempo real
