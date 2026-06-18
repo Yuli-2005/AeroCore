@@ -14,7 +14,7 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = kIsWeb && MediaQuery.of(context).size.width >= 800;
+    final isWide = kIsWeb && MediaQuery.of(context).size.width >= 1100;
     return Container(
       height: 64,
       decoration: BoxDecoration(

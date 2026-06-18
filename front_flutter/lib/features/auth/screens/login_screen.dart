@@ -18,6 +18,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   String? _error;
 
+  Future<void> _demoLogin() async {
+    _emailCtrl.text = 'demo@aerocore.com';
+    _passCtrl.text  = 'Demo@2026';
+    await _login();
+  }
+
   Future<void> _login() async {
     setState(() { _loading = true; _error = null; });
     try {
@@ -214,7 +220,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 24),
           GradientButton(text: 'Iniciar sesión', onPressed: _login, loading: _loading,
             icon: Icons.login),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          Row(children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text('o', style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+            ),
+            const Expanded(child: Divider()),
+          ]),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _loading ? null : _demoLogin,
+            icon: const Icon(Icons.play_circle_outline, size: 18),
+            label: const Text('Entrar como demo'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(height: 12),
           TextButton(
             onPressed: () => context.go('/register'),
             child: const Text('¿No tienes cuenta? Regístrate',
