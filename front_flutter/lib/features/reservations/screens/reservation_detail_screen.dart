@@ -778,10 +778,11 @@ class _SeatPickerMapState extends State<_SeatPickerMap> {
     }
 
     final cols  = cabin == 'ECONOMY'  ? ['A','B','C','D','E','F']
-                : cabin == 'BUSINESS' ? ['A','B','C','D']
-                :                       ['A','B'];
+                :                       ['A','B','C','D'];
     final rows  = cabin == 'ECONOMY'  ? 21
                 : cabin == 'BUSINESS' ? 8 : 6;
+    final startRow = cabin == 'ECONOMY'  ? 15
+                   : cabin == 'BUSINESS' ? 7 : 1;
     final aisle = cabin == 'ECONOMY'  ? 3 : 2;
     final avail = (rows * cols.length) - _occupied.length;
 
@@ -833,7 +834,7 @@ class _SeatPickerMapState extends State<_SeatPickerMap> {
         const SizedBox(height: 4),
         // Filas
         ...List.generate(rows, (ri) {
-          final rowNum = ri + 1;
+          final rowNum = startRow + ri;
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
