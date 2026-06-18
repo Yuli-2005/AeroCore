@@ -219,16 +219,25 @@ class _SearchScreenState extends State<SearchScreen> {
             const Text('Core', style: TextStyle(
               fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const Spacer(),
-            // Nav links
-            _navLink('Buscar vuelos', Icons.search, () {}),
-            const SizedBox(width: 8),
-            _navLink('Mis viajes', Icons.card_travel, () => context.go('/my-trips')),
-            const SizedBox(width: 16),
-            // Logout
-            TextButton.icon(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout, size: 16, color: Color(0xFFEF4444)),
-              label: const Text('Salir', style: TextStyle(color: Color(0xFFEF4444))),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.menu, color: Color(0xFF475569), size: 26),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 8,
+              offset: const Offset(0, 48),
+              onSelected: (val) async {
+                if (val == 'logout') {
+                  await _logout();
+                } else {
+                  context.go(val);
+                }
+              },
+              itemBuilder: (_) => [
+                _menuItem('Buscar vuelos', Icons.search, '/flights'),
+                _menuItem('Mis viajes', Icons.card_travel, '/my-trips'),
+                const PopupMenuDivider(),
+                _menuItem('Salir', Icons.logout, 'logout',
+                  color: const Color(0xFFEF4444)),
+              ],
             ),
           ],
         ),
@@ -236,20 +245,17 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _navLink(String label, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(children: [
-          Icon(icon, size: 16, color: const Color(0xFF475569)),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(color: Color(0xFF475569), fontSize: 14)),
-        ]),
-      ),
+  PopupMenuItem<String> _menuItem(String label, IconData icon, String value,
+      {Color color = const Color(0xFF475569)}) =>
+    PopupMenuItem(
+      value: value,
+      child: Row(children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 12),
+        Text(label, style: TextStyle(color: color, fontSize: 14,
+          fontWeight: FontWeight.w500)),
+      ]),
     );
-  }
 
   // ── Hero section ──────────────────────────────────────────
   Widget _hero() {
