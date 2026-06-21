@@ -1139,7 +1139,7 @@ class _SeatMapWidget extends StatelessWidget {
     final cols  = cabin == 'ECONOMY'  ? ['A','B','C','D','E','F']
                 : cabin == 'BUSINESS' ? ['A','B','C','D']
                 :                       ['A','B'];
-    final rows  = cabin == 'ECONOMY'  ? 21
+    final rows  = cabin == 'ECONOMY'  ? 35
                 : cabin == 'BUSINESS' ? 8
                 :                       6;
     final aisle = cabin == 'ECONOMY'  ? 3 : 2;
