@@ -5,8 +5,8 @@ const _baseUrl = 'https://aerocore-api-issd.onrender.com/api/v1/yulieth-galarza'
 
 final dio = Dio(BaseOptions(
   baseUrl: _baseUrl,
-  connectTimeout: const Duration(seconds: 45),
-  receiveTimeout: const Duration(seconds: 45),
+  connectTimeout: const Duration(seconds: 90),
+  receiveTimeout: const Duration(seconds: 90),
 ))
   ..interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) async {

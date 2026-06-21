@@ -19,7 +19,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   String? _error;
 
-  Future<void> _login() async {
+  Future<void> _login({int attempt = 1}) async {
     setState(() { _loading = true; _error = null; });
     try {
       final res = await dio.post('/auth/login', data: {
@@ -30,17 +30,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await TokenStorage.save(token);
       if (mounted) context.go('/flights');
     } catch (e) {
-      String msg = 'Error al conectar. Espera unos segundos y reintenta.';
+      final isTimeout = e is DioException &&
+          (e.type == DioExceptionType.connectionTimeout ||
+           e.type == DioExceptionType.receiveTimeout);
+      // Reintento automático si fue timeout en el primer intento
+      if (isTimeout && attempt == 1) {
+        await _login(attempt: 2);
+        return;
+      }
+      String msg = 'Error al conectar. Intenta de nuevo.';
       if (e is DioException) {
-        if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
-          msg = 'El servidor está iniciando, espera 30 segundos y reintenta.';
+        if (isTimeout) {
+          msg = 'El servidor tardó demasiado. Intenta de nuevo en unos segundos.';
         } else {
           final data = e.response?.data;
           if (data is Map) msg = data['error']?['message'] ?? data['message'] ?? msg;
         }
       }
-      setState(() { _error = msg; });
+      if (mounted) setState(() { _error = msg; });
     } finally {
       if (mounted) setState(() { _loading = false; });
     }
