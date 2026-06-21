@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
@@ -43,8 +44,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final token = res.data['data']['token'] as String;
       await TokenStorage.save(token);
       if (mounted) context.go('/flights');
-    } catch (_) {
-      setState(() => _error = 'Error al registrarse. El correo ya puede estar en uso.');
+    } catch (e) {
+      String msg = 'Error al registrarse. Intenta de nuevo.';
+      if (e is DioException) {
+        final data = e.response?.data;
+        if (data is Map) {
+          msg = data['error']?['message'] ?? data['message'] ?? msg;
+        }
+      }
+      setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
