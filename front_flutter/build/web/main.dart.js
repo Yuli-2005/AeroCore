@@ -97774,30 +97774,28 @@ case 6:if(n.c!=null)n.S(new A.aFv(n))
 case 1:return A.N(q,r)
 case 2:return A.M(o,r)}})
 return A.O($async$BI,r)},
-M(a){var s,r,q,p,o,n,m,l,k,j,i=this,h=null,g=i.a.d,f=g.f
-if(f==null)f="ECONOMY"
-if(i.e)return B.aU4
-s=f==="ECONOMY"
+M(a){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=j.a.d,g=h.f
+if(g==null)g="ECONOMY"
+if(j.e)return B.aU4
+s=g==="ECONOMY"
 r=t.s
 q=s?A.a(["A","B","C","D","E","F"],r):A.a(["A","B","C","D"],r)
-if(s)p=21
-else p=f==="BUSINESS"?8:6
-if(s)o=15
-else o=f==="BUSINESS"?7:1
-n=s?3:2
+if(s)p=35
+else p=g==="BUSINESS"?8:6
+o=s?3:2
 s=q.length
-r=i.d.a
-m=t.p
-l=A.aE(A.a([A.X("ASIENTO PARA "+i.a.d.b.toUpperCase(),h,h,h,B.b1H,h,h,h),B.b4,i.Jl(B.aX,"Tu asiento"),B.cf,i.Jl(B.p0,"Ocupado"),B.cf,i.Jl(B.cp,"Libre")],m),B.J,B.E,B.F,h)
-r=A.aE(A.a([i.Yl(p*s-r,B.kj,"libres"),B.cf,i.Yl(i.d.a,B.bj,"ocupados")],m),B.J,B.E,B.F,h)
-s=A.cW(A.as(h,B.TH,B.I,h,h,new A.aA(B.vg,h,A.dt(B.p2,1),B.R7,h,h,B.T),h,22,h,h,h,h,h,60),h,h)
-k=A.a([B.aZZ],m)
-j=new A.eK(q,A.V(q).i("eK<1>"))
-j=j.gdK(j)
-B.n.N(k,new A.dE(j,new A.aFy(n),A.p(j).i("dE<k.E,e>")))
-m=A.a([B.kB,l,B.bY,r,B.dm,s,B.eB,A.aE(k,B.J,B.cU,B.F,h),B.bY],m)
-B.n.N(m,A.tN(p,new A.aFz(i,o,q,g.e,n),!0,t.l7))
-return new A.aM(B.WN,A.aC(m,B.ap,B.E,B.F),h)},
+r=j.d.a
+n=t.p
+m=A.aE(A.a([A.X("ASIENTO PARA "+j.a.d.b.toUpperCase(),i,i,i,B.b1H,i,i,i),B.b4,j.Jl(B.aX,"Tu asiento"),B.cf,j.Jl(B.p0,"Ocupado"),B.cf,j.Jl(B.cp,"Libre")],n),B.J,B.E,B.F,i)
+r=A.aE(A.a([j.Yl(p*s-r,B.kj,"libres"),B.cf,j.Yl(j.d.a,B.bj,"ocupados")],n),B.J,B.E,B.F,i)
+s=A.cW(A.as(i,B.TH,B.I,i,i,new A.aA(B.vg,i,A.dt(B.p2,1),B.R7,i,i,B.T),i,22,i,i,i,i,i,60),i,i)
+l=A.a([B.aZZ],n)
+k=new A.eK(q,A.V(q).i("eK<1>"))
+k=k.gdK(k)
+B.n.N(l,new A.dE(k,new A.aFy(o),A.p(k).i("dE<k.E,e>")))
+n=A.a([B.kB,m,B.bY,r,B.dm,s,B.eB,A.aE(l,B.J,B.cU,B.F,i),B.bY],n)
+B.n.N(n,A.tN(p,new A.aFz(j,1,q,h.e,o),!0,t.l7))
+return new A.aM(B.WN,A.aC(n,B.ap,B.E,B.F),i)},
 Jl(a,b){var s=null,r=A.aO(3)
 return A.aE(A.a([A.as(s,s,B.I,s,s,new A.aA(a,s,A.dt(a.bc(0.5),1),r,s,s,B.T),s,10,s,s,s,s,s,10),B.fr,A.X(b,s,s,s,B.tH,s,s,s)],t.p),B.J,B.E,B.F,s)},
 Yl(a,b,c){var s=null,r=b.bc(0.1),q=A.aO(8)
