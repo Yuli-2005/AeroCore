@@ -141,32 +141,11 @@ function onSearch() {
   router.push(`/results?${params}`);
 }
 
-const ROUTE_PAIRS = [
-  { origin: 'GYE', destination: 'BOG' },
-  { origin: 'BOG', destination: 'GYE' },
-  { origin: 'UIO', destination: 'LIM' },
-  { origin: 'LIM', destination: 'UIO' },
-  { origin: 'UIO', destination: 'SCL' },
-  { origin: 'BOG', destination: 'PTY' },
-];
-const CANDIDATE_DATES = ['2026-06-21','2026-06-22','2026-06-23','2026-06-24','2026-06-25'];
-
 async function loadRecommendedRoutes() {
   loadingRoutes.value = true;
   try {
-    const results = await Promise.all(
-      ROUTE_PAIRS.map(async (pair) => {
-        for (const date of CANDIDATE_DATES) {
-          try {
-            const flights = await flightsService.search({ origin: pair.origin, destination: pair.destination, date, passengers: 1 });
-            if (flights.length > 0) return flights[0];
-          } catch { /* try next date */ }
-        }
-        return null;
-      })
-    );
-    const found = results.filter((f): f is NonNullable<typeof f> => f !== null);
-    routes.value = buildRecommendedRoutes(found);
+    const list = await flightsService.getAll();
+    routes.value = buildRecommendedRoutes(list);
   } catch {
     routes.value = [];
   } finally {
