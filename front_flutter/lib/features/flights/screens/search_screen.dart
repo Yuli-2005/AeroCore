@@ -32,14 +32,6 @@ class _SearchScreenState extends State<SearchScreen> {
   // Rutas destacadas cargadas desde Supabase
   List<Map<String, dynamic>> _featuredRoutes = [];
 
-  final _cabins = {
-    'ECONOMY':        'Económica',
-    'PREMIUM_ECONOMY': 'Premium Economy',
-    'BUSINESS':       'Business',
-    'FIRST':          'Primera clase',
-  };
-
-  // Pares de rutas a mostrar (sin fecha ni precio — se obtienen del backend)
   static const _routePairs = [
     ('GYE', 'Guayaquil', 'UIO', 'Quito'),
     ('UIO', 'Quito',     'GYE', 'Guayaquil'),
@@ -49,11 +41,13 @@ class _SearchScreenState extends State<SearchScreen> {
     ('UIO', 'Quito',     'LIM', 'Lima'),
   ];
 
-  // Fechas candidatas donde el backend tiene vuelos
-  static const _candidateDates = [
-    '2026-07-01', '2026-07-10', '2026-07-15',
-    '2026-08-01', '2026-08-15', '2026-09-01',
-  ];
+  final _cabins = {
+    'ECONOMY':        'Económica',
+    'PREMIUM_ECONOMY': 'Premium Economy',
+    'BUSINESS':       'Business',
+    'FIRST':          'Primera clase',
+  };
+
 
   @override
   void initState() {
@@ -70,38 +64,43 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _loadFeaturedRoutes() async {
-    Future<Map<String, dynamic>?> fetchPair(
-        (String, String, String, String) pair) async {
-      for (final date in _candidateDates) {
-        try {
-          final res = await dio.get('/flights/search', queryParameters: {
-            'origin': pair.$1, 'destination': pair.$3,
-            'date': date, 'passengers': 1,
-          });
-          final flights = res.data['data'] as List? ?? [];
-          if (flights.isNotEmpty) {
-            final f = flights[0];
-            final classes = f['flightClasses'] as List? ?? [];
-            double minPrice = 0;
-            for (final c in classes) {
-              final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
-              if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
-            }
-            return {
-              'oCode': pair.$1, 'oCity': pair.$2,
-              'dCode': pair.$3, 'dCity': pair.$4,
-              'date': date, 'price': minPrice,
-            };
-          }
-        } catch (_) {}
-      }
-      return null;
-    }
+    try {
+      final res = await dio.get('/flights');
+      final flights = res.data['data'] as List? ?? [];
 
-    final futures = _routePairs.map(fetchPair).toList();
-    final all = await Future.wait(futures);
-    final results = all.whereType<Map<String, dynamic>>().toList();
-    if (mounted) setState(() => _featuredRoutes = results);
+      // Precio mínimo por ruta (igual que Vue)
+      final Map<String, Map<String, dynamic>> best = {};
+      for (final f in flights) {
+        final status = f['status'] as String? ?? '';
+        if (status != 'SCHEDULED' && status != 'DELAYED') continue;
+        final oCode = f['originAirportIata'] as String? ?? '';
+        final dCode = f['destinationAirportIata'] as String? ?? '';
+        if (oCode.isEmpty || dCode.isEmpty) continue;
+        final classes = f['flightClasses'] as List? ?? [];
+        double minPrice = 0;
+        for (final c in classes) {
+          final seats = (c['availableSeats'] as num? ?? 0).toInt();
+          if (seats <= 0) continue;
+          final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
+          if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
+        }
+        if (minPrice == 0) continue;
+        final key = '$oCode-$dCode';
+        final current = best[key];
+        if (current == null || minPrice < (current['price'] as double)) {
+          best[key] = {
+            'oCode': oCode, 'oCity': oCode,
+            'dCode': dCode, 'dCity': dCode,
+            'date': (f['departureDate'] as String? ?? '').split('T').first,
+            'price': minPrice,
+          };
+        }
+      }
+
+      final sorted = best.values.toList()
+        ..sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
+      if (mounted) setState(() => _featuredRoutes = sorted.take(6).toList());
+    } catch (_) {}
   }
 
   List<dynamic> _filter(String q) {
