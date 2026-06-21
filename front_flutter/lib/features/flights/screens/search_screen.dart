@@ -33,12 +33,16 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Map<String, dynamic>> _featuredRoutes = [];
 
   static const _routePairs = [
-    ('GYE', 'Guayaquil', 'UIO', 'Quito'),
-    ('UIO', 'Quito',     'GYE', 'Guayaquil'),
-    ('UIO', 'Quito',     'BOG', 'Bogotá'),
-    ('BOG', 'Bogotá',    'UIO', 'Quito'),
     ('GYE', 'Guayaquil', 'BOG', 'Bogotá'),
+    ('BOG', 'Bogotá',    'GYE', 'Guayaquil'),
     ('UIO', 'Quito',     'LIM', 'Lima'),
+    ('LIM', 'Lima',      'UIO', 'Quito'),
+    ('UIO', 'Quito',     'SCL', 'Santiago'),
+    ('BOG', 'Bogotá',    'PTY', 'Panamá'),
+  ];
+
+  static const _candidateDates = [
+    '2026-06-21', '2026-06-22', '2026-06-23', '2026-06-24', '2026-06-25',
   ];
 
   final _cabins = {
@@ -64,43 +68,38 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _loadFeaturedRoutes() async {
-    try {
-      final res = await dio.get('/flights');
-      final flights = res.data['data'] as List? ?? [];
-
-      // Precio mínimo por ruta (igual que Vue)
-      final Map<String, Map<String, dynamic>> best = {};
-      for (final f in flights) {
-        final status = f['status'] as String? ?? '';
-        if (status != 'SCHEDULED' && status != 'DELAYED') continue;
-        final oCode = f['originAirportIata'] as String? ?? '';
-        final dCode = f['destinationAirportIata'] as String? ?? '';
-        if (oCode.isEmpty || dCode.isEmpty) continue;
-        final classes = f['flightClasses'] as List? ?? [];
-        double minPrice = 0;
-        for (final c in classes) {
-          final seats = (c['availableSeats'] as num? ?? 0).toInt();
-          if (seats <= 0) continue;
-          final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
-          if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
-        }
-        if (minPrice == 0) continue;
-        final key = '$oCode-$dCode';
-        final current = best[key];
-        if (current == null || minPrice < (current['price'] as double)) {
-          best[key] = {
-            'oCode': oCode, 'oCity': oCode,
-            'dCode': dCode, 'dCity': dCode,
-            'date': (f['departureDate'] as String? ?? '').split('T').first,
-            'price': minPrice,
-          };
-        }
+    Future<Map<String, dynamic>?> fetchPair(
+        (String, String, String, String) pair) async {
+      for (final date in _candidateDates) {
+        try {
+          final res = await dio.get('/flights/search', queryParameters: {
+            'origin': pair.$1, 'destination': pair.$3,
+            'date': date, 'passengers': 1,
+          });
+          final flights = res.data['data'] as List? ?? [];
+          if (flights.isNotEmpty) {
+            final f = flights[0];
+            final classes = f['flightClasses'] as List? ?? [];
+            double minPrice = 0;
+            for (final c in classes) {
+              final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
+              if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
+            }
+            return {
+              'oCode': pair.$1, 'oCity': pair.$2,
+              'dCode': pair.$3, 'dCity': pair.$4,
+              'date': date, 'price': minPrice,
+            };
+          }
+        } catch (_) {}
       }
+      return null;
+    }
 
-      final sorted = best.values.toList()
-        ..sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
-      if (mounted) setState(() => _featuredRoutes = sorted.take(6).toList());
-    } catch (_) {}
+    final futures = _routePairs.map(fetchPair).toList();
+    final all = await Future.wait(futures);
+    final results = all.whereType<Map<String, dynamic>>().toList();
+    if (mounted) setState(() => _featuredRoutes = results);
   }
 
   List<dynamic> _filter(String q) {
