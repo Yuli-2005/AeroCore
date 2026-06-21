@@ -67,6 +67,8 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final res = await dio.get('/flights');
       final flights = res.data['data'] as List? ?? [];
+
+      // Precio mínimo por ruta (igual que Vue)
       final Map<String, Map<String, dynamic>> best = {};
       for (final f in flights) {
         final status = f['status'] as String? ?? '';
@@ -94,6 +96,7 @@ class _SearchScreenState extends State<SearchScreen> {
           };
         }
       }
+
       final sorted = best.values.toList()
         ..sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
       if (mounted) setState(() => _featuredRoutes = sorted.take(6).toList());
