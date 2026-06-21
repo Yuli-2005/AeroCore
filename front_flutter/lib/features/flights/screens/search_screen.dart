@@ -33,12 +33,12 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Map<String, dynamic>> _featuredRoutes = [];
 
   static const _routePairs = [
+    ('GYE', 'Guayaquil', 'UIO', 'Quito'),
+    ('UIO', 'Quito',     'GYE', 'Guayaquil'),
+    ('UIO', 'Quito',     'BOG', 'Bogotá'),
+    ('BOG', 'Bogotá',    'UIO', 'Quito'),
     ('GYE', 'Guayaquil', 'BOG', 'Bogotá'),
-    ('BOG', 'Bogotá',    'GYE', 'Guayaquil'),
     ('UIO', 'Quito',     'LIM', 'Lima'),
-    ('LIM', 'Lima',      'UIO', 'Quito'),
-    ('UIO', 'Quito',     'SCL', 'Santiago'),
-    ('BOG', 'Bogotá',    'PTY', 'Panamá'),
   ];
 
   final _cabins = {

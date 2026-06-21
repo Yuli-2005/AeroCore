@@ -779,9 +779,10 @@ class _SeatPickerMapState extends State<_SeatPickerMap> {
 
     final cols  = cabin == 'ECONOMY'  ? ['A','B','C','D','E','F']
                 :                       ['A','B','C','D'];
-    final rows  = cabin == 'ECONOMY'  ? 35
+    final rows  = cabin == 'ECONOMY'  ? 21
                 : cabin == 'BUSINESS' ? 8 : 6;
-    final startRow = 1;
+    final startRow = cabin == 'ECONOMY'  ? 15
+                   : cabin == 'BUSINESS' ? 7 : 1;
     final aisle = cabin == 'ECONOMY'  ? 3 : 2;
     final avail = (rows * cols.length) - _occupied.length;
 
