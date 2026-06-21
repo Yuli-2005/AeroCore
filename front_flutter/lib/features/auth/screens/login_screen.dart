@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,8 +29,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final token = res.data['data']['token'] as String;
       await TokenStorage.save(token);
       if (mounted) context.go('/flights');
-    } catch (_) {
-      setState(() { _error = 'Correo o contraseña incorrectos'; });
+    } catch (e) {
+      String msg = 'Error al conectar. Espera unos segundos y reintenta.';
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          msg = 'El servidor está iniciando, espera 30 segundos y reintenta.';
+        } else {
+          final data = e.response?.data;
+          if (data is Map) msg = data['error']?['message'] ?? data['message'] ?? msg;
+        }
+      }
+      setState(() { _error = msg; });
     } finally {
       if (mounted) setState(() { _loading = false; });
     }
