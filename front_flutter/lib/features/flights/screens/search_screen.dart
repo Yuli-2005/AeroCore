@@ -49,10 +49,10 @@ class _SearchScreenState extends State<SearchScreen> {
     ('UIO', 'Quito',     'LIM', 'Lima'),
   ];
 
-  // Fechas candidatas donde el backend tiene vuelos demo
+  // Fechas candidatas donde el backend tiene vuelos
   static const _candidateDates = [
-    '2026-05-25', '2026-05-23', '2026-05-24',
-    '2026-06-14', '2026-06-15', '2026-07-01',
+    '2026-07-01', '2026-07-10', '2026-07-15',
+    '2026-08-01', '2026-08-15', '2026-09-01',
   ];
 
   @override
@@ -70,8 +70,8 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _loadFeaturedRoutes() async {
-    final results = <Map<String, dynamic>>[];
-    for (final pair in _routePairs) {
+    Future<Map<String, dynamic>?> fetchPair(
+        (String, String, String, String) pair) async {
       for (final date in _candidateDates) {
         try {
           final res = await dio.get('/flights/search', queryParameters: {
@@ -87,16 +87,20 @@ class _SearchScreenState extends State<SearchScreen> {
               final p = ((c['basePrice'] ?? c['price'] ?? 0) as num).toDouble();
               if (p > 0 && (minPrice == 0 || p < minPrice)) minPrice = p;
             }
-            results.add({
+            return {
               'oCode': pair.$1, 'oCity': pair.$2,
               'dCode': pair.$3, 'dCity': pair.$4,
               'date': date, 'price': minPrice,
-            });
-            break;
+            };
           }
         } catch (_) {}
       }
+      return null;
     }
+
+    final futures = _routePairs.map(fetchPair).toList();
+    final all = await Future.wait(futures);
+    final results = all.whereType<Map<String, dynamic>>().toList();
     if (mounted) setState(() => _featuredRoutes = results);
   }
 
