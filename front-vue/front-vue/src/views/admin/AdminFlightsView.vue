@@ -34,7 +34,7 @@ const columns: TableColumn[] = [
   { key: 'route', label: 'Ruta', render: (r: Row) => `${r.originAirportIata ?? '?'} → ${r.destinationAirportIata ?? '?'}` },
   { key: 'airline', label: 'Aerolínea', render: (r: Row) => r.airline ? `${r.airline.name} (${r.airline.iataCode})` : '—' },
   { key: 'flightNumber', label: 'N° Vuelo', render: (r: Row) => r.flightNumber ?? '—' },
-  { key: 'departureDate', label: 'Fecha', render: (r: Row) => r.departureDate ? new Date(r.departureDate).toLocaleDateString('es-EC') : '—' },
+  { key: 'departureDate', label: 'Fecha', render: (r: Row) => r.departureDate ? r.departureDate.slice(0, 10) : '—' },
   { key: 'status', label: 'Estado', render: (r: Row) => STATUS_LABELS[r.status] ?? r.status },
 ];
 
