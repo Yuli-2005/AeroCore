@@ -293,7 +293,7 @@ function buildSeatGrid(classType: string) {
     return { rows: Array.from({ length: 8 }, (_, i) => i + 7), cols: ['A', 'B', 'C', 'D'], aisleAfter: 1 };
   }
   return {
-    rows: Array.from({ length: 21 }, (_, i) => i + 15),
+    rows: Array.from({ length: 35 }, (_, i) => i + 1),
     cols: ['A', 'B', 'C', 'D', 'E', 'F'],
     aisleAfter: 2,
   };
