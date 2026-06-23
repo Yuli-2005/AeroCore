@@ -22,21 +22,24 @@ const CARDS = [
 
 onMounted(async () => {
   try {
-    const [flights, reservations, users, payments] = await Promise.all([
+    const [flightsRes, reservationsRes, usersRes, paymentsRes] = await Promise.allSettled([
       adminService.getFlights(),
       adminService.getReservations(),
       adminService.getUsers(),
       adminService.getPayments(),
     ]);
 
-    totalFlights.value = flights.length;
-    activeReservations.value = reservations.filter((r: any) => r.status !== 'CANCELLED').length;
-    registeredUsers.value = users.length;
-    simulatedRevenue.value = payments
+    const flights      = flightsRes.status      === 'fulfilled' ? flightsRes.value      : [];
+    const reservations = reservationsRes.status  === 'fulfilled' ? reservationsRes.value  : [];
+    const users        = usersRes.status         === 'fulfilled' ? usersRes.value         : [];
+    const payments     = paymentsRes.status      === 'fulfilled' ? paymentsRes.value      : [];
+
+    totalFlights.value        = flights.length;
+    activeReservations.value  = reservations.filter((r: any) => r.status !== 'CANCELLED').length;
+    registeredUsers.value     = users.length;
+    simulatedRevenue.value    = payments
       .filter((p: any) => p.status === 'CONFIRMED' || p.status === 'approved' || p.status === 'COMPLETED' || !p.status)
       .reduce((acc: number, p: any) => acc + Number(p.amount || 0), 0);
-  } catch {
-    // Manejo silencioso en stubs
   } finally {
     isLoading.value = false;
   }

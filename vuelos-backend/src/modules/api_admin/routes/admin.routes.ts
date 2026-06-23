@@ -200,9 +200,7 @@ export function createAdminRouter(
   router.use('/promotions', ...auth, makeGenericRouter(bDb, 'promotion'));
 
   // ── Pagos y facturación ─────────────────────────────────────
-  router.use('/payments', ...auth, makeGenericRouter(pDb, 'payment', {
-    reservation: { select: { id: true, reservationCode: true, totalAmount: true } },
-  }));
+  router.use('/payments', ...auth, makeGenericRouter(pDb, 'payment'));
   router.use('/billing-profiles', ...auth, makeGenericRouter(pDb, 'billingProfile'));
   router.use('/invoices',         ...auth, makeGenericRouter(pDb, 'invoice', {
     payment: true,
