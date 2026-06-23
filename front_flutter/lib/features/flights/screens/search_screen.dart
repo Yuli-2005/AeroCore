@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
@@ -819,7 +819,15 @@ class _FlightCardState extends State<_FlightCard> {
     super.dispose();
   }
 
-  String _time(String dt) => dt.length > 15 ? dt.substring(11, 16) : dt;
+  String _time(String dt) {
+    if (dt.length < 16) return dt;
+    try {
+      final local = DateTime.parse(dt).toLocal();
+      return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return dt.substring(11, 16);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -973,3 +981,4 @@ class _FlightCardState extends State<_FlightCard> {
     );
   }
 }
+
