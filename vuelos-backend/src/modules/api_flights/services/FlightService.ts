@@ -41,7 +41,11 @@ export class FlightService implements IFlightService {
     if (!data.originAirportIata || !data.destinationAirportIata || !data.departureDate) {
       throw new ValidationException('originAirportIata, destinationAirportIata y departureDate son requeridos');
     }
-    return this.flightRepository.create(data);
+    const flightClasses = data.flightClasses?.length > 0 ? data.flightClasses : [
+      { cabinClass: 'ECONOMY',  basePrice: 150, availableSeats: 150 },
+      { cabinClass: 'BUSINESS', basePrice: 400, availableSeats: 20  },
+    ];
+    return this.flightRepository.create({ ...data, flightClasses });
   }
 
   async update(id: string, data: any) {
